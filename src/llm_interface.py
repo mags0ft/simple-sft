@@ -24,7 +24,6 @@ client = openai.OpenAI(
     base_url=getenv(OPENAI_BASE_URL_ENV), api_key=getenv(OPENAI_API_KEY_ENV)
 )
 
-
 base_config = {
     "model": config["model"],
     "max_tokens": config["api_query"]["max_tokens"],
@@ -34,7 +33,7 @@ base_config = {
     "extra_headers": {
         "X-OpenRouter-Title": "simple-sft",
         "X-OpenRouter-Categories": "general-chat",
-        "HTTP-Referer": "",
+        "HTTP-Referer": "https://github.com/mags0ft/simple-sft",
     },
 }
 
