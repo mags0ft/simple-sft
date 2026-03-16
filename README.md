@@ -12,7 +12,9 @@
 
 ## Usage
 
-
+This project is still under very active development and in its early stages. It
+is thus not usable in production yet.
+Open an issue if you have any questions.
 
 ## License
 
