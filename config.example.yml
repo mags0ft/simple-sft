@@ -1,0 +1,145 @@
+# Configuration for simple-sft
+
+rows: 10000         # How many individual conversations to generate
+model: "deepseek/deepseek-v3.2"
+
+conversation:
+  min_length: 1     # How many turns (prompt + assistant resposnse) at least
+  max_length: 24    # Maximum number of turns
+
+  # When generating a conversation, at least one turn is created. For each
+  # subsequent turn, randomness decides whether to extend the conversation,
+  # up to the limit defined by max_length. The probability is defined below.
+  extend_prob: 0.75  # 0.75 = 75% chance per turn to add yet another turn
+
+categories:
+  # You may add any conversation topic here -- it'll be injected into the
+  # generation prompt for the initial conversation starter, so make sure to
+  # make it self-explanatory.
+
+  # This is a dictionary - each category has a float assigned to it to control
+  # how much this category comes up in the final dataset.
+  # - value between 0 and 1: percentage (0.2 = 20% of the dataset is comprised
+  #   of this category)
+  # - value > 1: exact number (how much)
+  # - value = -1: go figure it out for me (even distribution of the remaining
+  #   rows not allocated to other categories with percentages or absolute
+  #   values)
+
+  "Generic conversations": 0.1500
+  "Maths": 0.1500
+  "Physics": 0.1000
+  "Chemistry": 0.0500
+  "Biology": 0.0500
+  "Psychology": 0.0100
+  "Cooking": 0.0075
+  "Baking": 0.0075
+  "Shopping": 0.005
+  "Law": 0.0250
+  "Health": 400
+  "Situations of mental distress and suicide prevention": 250
+  "Translation tasks": -1
+  "Prose & writing tasks": -1
+  "Sports": -1
+  "School": -1
+
+api_query:
+  # Reasoning effort to use in chats and prompt generation
+  reasoning_effort: medium
+
+  # The maximum amount of response tokens per response
+  max_tokens: 8192
+
+  # The temperature to use in the actual chats in the final dataset
+  chat_temperature: 0.8
+
+  # The temperature to use for generating prompts or questions
+  meta_temperature: 1.0
+
+  # Amount of re-tries before giving up on a request
+  max_retries: 4
+
+  # If using services like OpenRouter, you may specify routing rules or
+  # provider preferences in the extra_body field. Enter valid JSON as a string.
+  extra_body: ''
+
+  # Not nearly enough providers have stable support for the Responses API, even
+  # though it's clearly superior to the Chat Completions API -- unfortunately,
+  # due to this, simple-sft still relies on the old Chat Completions API. To
+  # pass reasoning tokens back to the model, a field in the message object can
+  # be specified. For OpenRouter, passing back reasoning details to preserve
+  # context is done via the reasoning_details field.
+  preserve_reasoning_message_field: reasoning_details
+
+prompting:
+  # Whether simple-sft should create custom system prompts for the assistant
+  generate_custom_system_prompts: true
+
+  # The probability of a conversation having a system prompt at the beginning.
+  system_prompt_probability: 0.9
+
+  # How many custom system prompts to generate (will be randomly chosen from
+  # once generating the conversations). Do not set this too low or your model
+  # may overfit on the system prompts if you are not masking them!
+  n_system_prompts: 1000
+
+  # Whether there shall be "special" requirements and instructions given to the
+  # assistant in the system prompt -- this is helpful if the final model you
+  # are training on the generated dataset shall be able to generalize and learn
+  # how to follow special instructions and will improve system prompt support
+  # and understanding
+  include_special_system_prompts: true
+
+  # The percentage of system prompts that shall have these "special" catches to
+  # them
+  special_system_prompts_percentage: 0.1
+
+  # Themes for generated system prompts, randomly chosen
+  system_prompt_generation_themes:
+    - "helpful assistant"
+    - "AI chatbot"
+    - "roleplay"
+    - "customer support agent"
+    - "coding expert"
+    - "science helper"
+    - "friendly listener"
+    - "advisor"
+    - "professional"
+    - "casual writer"
+    - "chatroom participant"
+    - "citizen"
+
+  # Formats for the system prompts, randomly chosen
+  system_prompt_formats:
+    - "plain text"
+    - "short plain text"
+    - "very short coherent text"
+    - "long coherent instructions"
+    - "list of markdown-formatted rules"
+    - "comprehensive guardrails"
+
+output:
+  # Whether to include reasoning traces in the final dataset
+  include_reasoning_traces: true
+
+  # Where to find and where to put these traces for each message
+  where_to_find_reasoning: "reasoning_details.text"
+  output_reasoning_field_name: "thinking"
+
+  # Whether to add the system prompts for each message
+  add_system_prompts: true
+
+tools:
+  # Whether to generate random weather data as a tool response.
+  simulate_weather: true
+
+  # Whether to prompt the LLM to generate fake, synthetic search result data
+  simulate_web_search: true
+
+  available:
+    # The tools to make available to the assistant when simulating an
+    # interaction with a user.
+    weather: 0.50
+    web_search: 0.75
+    calculator: 0.25
+    fetch_webpage: 0.20
