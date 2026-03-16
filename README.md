@@ -12,6 +12,17 @@
 
 ## Usage
 
+Get started with:
+
+```bash
+# Install the dependencies
+python3 -m venv ./.venv && . ./.venv/bin/activate
+pip install -r ./requirements.txt
+
+# Run simple-sft on your machine!
+python3 ./src/main.py
+```
+
 This project is still under very active development and in its early stages. It
 is thus not usable in production yet.
 Open an issue if you have any questions.
