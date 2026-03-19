@@ -34,7 +34,7 @@ categories:
   "Psychology": 0.0100
   "Cooking": 0.0075
   "Baking": 0.0075
-  "Shopping": 0.005
+  "Shopping": 0.0050
   "Law": 0.0250
   "Health": 400
   "Situations of mental distress and suicide prevention": 250
@@ -42,6 +42,37 @@ categories:
   "Prose & writing tasks": -1
   "Sports": -1
   "School": -1
+
+special_categories:
+  # These are extras which you can activate to further improve dataset quality
+  # and versatility. Per row, only one of these special categories may apply at
+  # maximum, with each category occuring in combination of one of the
+  # categories defined above in the "categories" dictionary. The "percentage"
+  # parameter decides how much of the total rows have the special category
+  # randomly applied.
+
+  pushback_on_nonsense_questions:
+    # Will make the model in the chat push back on nonsensical questions. Works
+    # by generating initial prompts that do not make any sense and telling the
+    # model used for synthetic data generation to point out the question does
+    # not make any sense.
+    activate: true
+    percentage: 0.0250
+    # = 2.5% of the total rows have this special category applied to them.
+  
+  prompt_injection_refusals:
+    # Will generate samples where the "user" role tries to perform prompt
+    # injection attacks on the model and makes the model refuse to follow these
+    # attacks.
+    activate: true
+    percentage: 0.0250
+  
+  hallucination_rejections:
+    # On questions about topics or things that do not exist, the model will
+    # refuse to answer by saying that it simply doesn't "know". The questions
+    # about things that do not exist are generated.
+    activate: true
+    percentage: 0.0500
 
 api_query:
   # Reasoning effort to use in chats and prompt generation
@@ -138,7 +169,7 @@ tools:
 
   available:
     # The tools to make available to the assistant when simulating an
-    # interaction with a user.
+    # interaction with a user. Set to zero to make the tool always unavailable.
     weather: 0.50
     web_search: 0.75
     calculator: 0.25
