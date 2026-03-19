@@ -20,7 +20,7 @@ def load_config() -> dict:
     Loads the configuration from the YAML file.
     """
 
-    with open(getenv(YAML_CONFIG_ENV), "r") as f:
+    with open(getenv(YAML_CONFIG_ENV, "./config.yml"), "r") as f:
         return yaml.load(f, yaml.FullLoader)
 
 

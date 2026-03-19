@@ -30,5 +30,6 @@ talking in the context of the topic "%s". This is your chat history so far:
 
 Generate a reasonable follow-up request/message from the viewpoint of the user.
 
-Only answer with this message, nothing else.
+Only answer with this message, nothing else. Do not prepend "User:" to your \
+message.
 """.strip()

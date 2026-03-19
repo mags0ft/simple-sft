@@ -3,14 +3,29 @@ Handles the main secret sauce: The conversation generation.
 """
 
 from random import random
+from typing import Optional, TypedDict
+from unicodedata import category
 from uuid import uuid4
 
 from config_reader import config
 from llm_interface import simple_in_out
+from prompts import FOLLOWUP_QUESTION_GENERATION_PROMPT
 
 
-MessagesType = list[dict[str, str | dict]]
-ConversationType = dict[str, str | MessagesType]
+class BaseMessageType(TypedDict):
+    role: str
+    content: str
+
+
+class MessagesType(BaseMessageType, total=False):
+    tool_calls: Optional[list[dict]]
+    thinking: Optional[str]
+
+
+class ConversationType(TypedDict):
+    messages: list[MessagesType]
+    id: str
+    category: str
 
 
 def generate_conversation(
@@ -21,16 +36,21 @@ def generate_conversation(
     """
 
     assert category.strip() != ""
-    assert not config["output"]["add_system_prompts"] or system_prompt.strip() != ""
+    assert (
+        not config["output"]["add_system_prompts"]
+        or system_prompt.strip() != ""
+    )
 
     conversation: ConversationType = {
-        "id": uuid4()[:8],
+        "id": str(uuid4())[:8],
         "messages": [],
-        "category": str,
+        "category": category,
     }
 
     if config["output"]["add_system_prompts"]:
-        conversation["messages"].append({"role": "system", "content": system_prompt})
+        conversation["messages"].append(
+            {"role": "system", "content": system_prompt}
+        )
 
     turns = 0
 
@@ -40,12 +60,14 @@ def generate_conversation(
             if turns > 0
             else initial_question
         )
-        conversation.append({"role": "user", "content": user_message})
+        conversation["messages"].append(
+            {"role": "user", "content": user_message}
+        )
 
         assistant_message, reasoning, tool_calls = generate_assistant_response(
             conversation
         )
-        conversation.append(
+        conversation["messages"].append(
             {
                 "role": "assistant",
                 "content": assistant_message,
@@ -65,11 +87,33 @@ def generate_conversation(
     return post_processing(conversation)
 
 
-def generate_user_message(messages: MessagesType, category: str) -> str:
+def generate_user_message(messages: list[MessagesType], category: str) -> str:
     """
     Generates a follow-up request or message the user could send to the
     assistant.
     """
+
+    def shorten_too_long_message(message: str) -> str:
+        if len(message) > 512:
+            return message[:512] + " ..."
+
+        return message
+
+    constructed_summary = ""
+
+    for message in messages:
+        if message["role"] not in ["user", "assistant"]:
+            continue
+
+        constructed_summary += (
+            ("User: " if message["role"] == "user" else "Assistant: ")
+            + message["content"]
+            + "\n\n"
+        )
+
+    return simple_in_out(
+        FOLLOWUP_QUESTION_GENERATION_PROMPT % (category, constructed_summary)
+    )
 
 
 def post_processing(conversation: ConversationType) -> ConversationType:

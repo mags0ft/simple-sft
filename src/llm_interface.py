@@ -10,6 +10,7 @@ import json
 from os import getenv
 from threading import Thread
 import time
+from typing import Any
 
 from dotenv import load_dotenv
 import openai
@@ -28,7 +29,11 @@ base_config = {
     "model": config["model"],
     "max_tokens": config["api_query"]["max_tokens"],
     "reasoning_effort": config["api_query"]["reasoning_effort"],
-    "extra_body": json.loads(config["api_query"]["extra_body"]),
+    "extra_body": (
+        json.loads(config["api_query"]["extra_body"])
+        if config["api_query"]["extra_body"]
+        else {}
+    ),
     "stream": False,
     "extra_headers": {
         "X-OpenRouter-Title": "simple-sft",
@@ -37,8 +42,14 @@ base_config = {
     },
 }
 
-meta_config = {"temperature": config["api_query"]["meta_temperature"], **base_config}
-chat_config = {"temperature": config["api_query"]["chat_temperature"], **base_config}
+meta_config = {
+    "temperature": config["api_query"]["meta_temperature"],
+    **base_config,
+}
+chat_config = {
+    "temperature": config["api_query"]["chat_temperature"],
+    **base_config,
+}
 
 
 class OpenAIAPIRequestError(Exception):
@@ -47,7 +58,9 @@ class OpenAIAPIRequestError(Exception):
     """
 
 
-def completion_wrapper(**kwargs) -> openai.ChatCompletion:
+def completion_wrapper(
+    **kwargs,
+) -> "Any":
     wait_amount = 2
 
     for _ in range(config["api_query"]["max_retries"]):
@@ -64,10 +77,10 @@ def completion_wrapper(**kwargs) -> openai.ChatCompletion:
         time.sleep(wait_amount)
         wait_amount *= 2
 
-    raise
+    raise OpenAIAPIRequestError(f"Failed to get a valid response.")
 
 
-def get_text(response: openai.ChatCompletion | None) -> str:
+def get_text(response: Any | None) -> str:
     """
     Extracts the pure text from the response object given.
     """
@@ -98,7 +111,9 @@ def simple_in_out(input_: str) -> str:
     return get_text(response)
 
 
-def process_many_out_of_order(prompts: list[str], n_threads: int = 8) -> list[str]:
+def process_many_out_of_order(
+    prompts: list[str], n_threads: int = 8
+) -> list[str]:
     """
     Processes many given prompts out-of-order and returns a list of the
     resulting texts without reasoning traces.

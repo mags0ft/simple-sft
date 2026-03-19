@@ -18,6 +18,8 @@ Get started with:
 # Install the dependencies
 python3 -m venv ./.venv && . ./.venv/bin/activate
 pip install -r ./requirements.txt
+cp ./config.example.yml ./config.yml
+cp ./.env.example ./.env
 
 # Run simple-sft on your machine!
 python3 ./src/main.py
