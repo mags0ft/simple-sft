@@ -61,4 +61,6 @@ def concatenate_prompts(*prompts) -> str:
     Concatenates prompts together cleanly using Markdown syntax.
     """
 
-    return "\n\n---\n\n".join(prompts).strip()
+    cleaned_prompts = [prompt for prompt in prompts if prompt.strip() != ""]
+
+    return "\n\n---\n\n".join(cleaned_prompts).strip()

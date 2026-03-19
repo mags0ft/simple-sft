@@ -3,54 +3,48 @@ Handles the main secret sauce: The conversation generation.
 """
 
 from random import random
-from typing import Optional, TypedDict
-from unicodedata import category
 from uuid import uuid4
 
 from config_reader import config
-from llm_interface import simple_in_out
-from prompts import FOLLOWUP_QUESTION_GENERATION_PROMPT
-
-
-class BaseMessageType(TypedDict):
-    role: str
-    content: str
-
-
-class MessagesType(BaseMessageType, total=False):
-    tool_calls: Optional[list[dict]]
-    thinking: Optional[str]
-
-
-class ConversationType(TypedDict):
-    messages: list[MessagesType]
-    id: str
-    category: str
+from llm_interface import (
+    get_reasoning,
+    get_tool_calls,
+    simple_in_out,
+    completion_wrapper,
+    get_text,
+)
+from prompts import (
+    FOLLOWUP_QUESTION_GENERATION_PROMPT,
+    concatenate_prompts,
+    InjectedSpecialPrompts,
+)
+from custom_types import ConversationType, MessagesType, ToolCallType, TopLevelToolType
 
 
 def generate_conversation(
-    category: str, system_prompt: str, initial_question: str
+    category: str,
+    system_prompt: str,
+    special_category: str,
+    initial_question: str,
+    tools: list[TopLevelToolType],
 ) -> ConversationType:
     """
     Generates a conversation.
     """
 
     assert category.strip() != ""
-    assert (
-        not config["output"]["add_system_prompts"]
-        or system_prompt.strip() != ""
-    )
+    assert not config["output"]["add_system_prompts"] or system_prompt.strip() != ""
 
     conversation: ConversationType = {
         "id": str(uuid4())[:8],
         "messages": [],
+        "tools": tools,
         "category": category,
+        "specials": special_category if special_category else "none",
     }
 
     if config["output"]["add_system_prompts"]:
-        conversation["messages"].append(
-            {"role": "system", "content": system_prompt}
-        )
+        conversation["messages"].append({"role": "system", "content": system_prompt})
 
     turns = 0
 
@@ -60,9 +54,7 @@ def generate_conversation(
             if turns > 0
             else initial_question
         )
-        conversation["messages"].append(
-            {"role": "user", "content": user_message}
-        )
+        conversation["messages"].append({"role": "user", "content": user_message})
 
         assistant_message, reasoning, tool_calls = generate_assistant_response(
             conversation
@@ -95,7 +87,7 @@ def generate_user_message(messages: list[MessagesType], category: str) -> str:
 
     def shorten_too_long_message(message: str) -> str:
         if len(message) > 512:
-            return message[:512] + " ..."
+            return message[:512] + "... [truncated message]"
 
         return message
 
@@ -106,14 +98,60 @@ def generate_user_message(messages: list[MessagesType], category: str) -> str:
             continue
 
         constructed_summary += (
-            ("User: " if message["role"] == "user" else "Assistant: ")
-            + message["content"]
+            ("**User**: " if message["role"] == "user" else "**Assistant**: ")
+            + shorten_too_long_message(message["content"]).strip()
             + "\n\n"
         )
 
     return simple_in_out(
         FOLLOWUP_QUESTION_GENERATION_PROMPT % (category, constructed_summary)
     )
+
+
+def generate_assistant_response(
+    conversation: ConversationType,
+) -> tuple[str, str, list[ToolCallType]]:
+    """
+    Generates the response of the assistant.
+    """
+
+    def inject_special_prompt_into_system_prompt(
+        messages: list[MessagesType],
+        special_category: str = "",
+        backstage_instruction: str = "",
+    ) -> list[MessagesType]:
+        """
+        Injects the special instructions (backstage instructions, special
+        category warnings) into the model's system prompt. Never seen in the
+        final dataset.
+        """
+
+        if not messages or messages[0]["role"] != "system":
+            return messages
+
+        special_prompt = {
+            "prompt_injection": InjectedSpecialPrompts.prompt_injection_warning,
+            "hallucination": InjectedSpecialPrompts.hallucination_warning,
+            "nonsense": InjectedSpecialPrompts.nonsense_warning,
+        }.get(special_category, "")
+
+        messages[0]["content"] = concatenate_prompts(
+            messages[0]["content"], special_prompt, backstage_instruction
+        )
+
+        return messages
+
+    response = completion_wrapper(
+        messages=inject_special_prompt_into_system_prompt(
+            conversation["messages"], conversation["specials"], ""
+        )
+    )
+
+    message = get_text(response)
+    reasoning = get_reasoning(response)
+    tool_calls = get_tool_calls(response)
+
+    return (message, reasoning or "", tool_calls or [])
 
 
 def post_processing(conversation: ConversationType) -> ConversationType:
@@ -123,10 +161,13 @@ def post_processing(conversation: ConversationType) -> ConversationType:
     """
 
     for message in conversation["messages"]:
-        if not config["output"]["include_reasoning_traces"]:
+        if not config["output"]["include_reasoning_traces"] and "thinking" in message:
             del message["thinking"]
 
-        elif config["output"]["output_reasoning_field_name"] != "thinking":
+        elif (
+            config["output"]["output_reasoning_field_name"] != "thinking"
+            and "thinking" in message
+        ):
             temp = message["thinking"]
             del message["thinking"]
             message[config["output"]["output_reasoning_field_name"]] = temp
