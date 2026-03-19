@@ -30,6 +30,19 @@ message.
 """.strip()
 
 
+WEB_SEARCH_SIMULATION_PROMPT = """
+You are a web search engine. You must answer in valid JSON and return 3 to 10 \
+diverse, synthetic, simulated "search results" for a query. Each search \
+result should have a "title" and "summary" field. Add realism like \
+unrelated info, irrelevant results, typos and helpful results.
+
+Only respond with the JSON, no Markdown formatting or preamble or similar. Do \
+not include any explanation or commentary, just the JSON.
+
+The query is: %s
+""".strip()
+
+
 class InjectedSpecialPrompts:
     """
     Special system prompt parts injected into the default system prompt to tell

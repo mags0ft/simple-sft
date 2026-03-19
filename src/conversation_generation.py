@@ -12,6 +12,7 @@ from llm_interface import (
     simple_in_out,
     completion_wrapper,
     get_text,
+    chat_config,
 )
 from prompts import (
     FOLLOWUP_QUESTION_GENERATION_PROMPT,
@@ -19,6 +20,13 @@ from prompts import (
     InjectedSpecialPrompts,
 )
 from custom_types import ConversationType, MessagesType, ToolCallType, TopLevelToolType
+from tools import get_tool_response
+
+
+class RepetitionError(Exception):
+    """
+    Error raised when a model called too many tools consecutively.
+    """
 
 
 def generate_conversation(
@@ -56,17 +64,48 @@ def generate_conversation(
         )
         conversation["messages"].append({"role": "user", "content": user_message})
 
-        assistant_message, reasoning, tool_calls = generate_assistant_response(
-            conversation
-        )
-        conversation["messages"].append(
-            {
-                "role": "assistant",
-                "content": assistant_message,
-                "thinking": reasoning,
-                "tool_calls": tool_calls,
-            }
-        )
+        # Handle assistant responses with tool calls:
+
+        for _ in range(config["conversation"]["max_consecutive_tool_calls"]):
+            assistant_message, reasoning, tool_calls = generate_assistant_response(
+                conversation
+            )
+            conversation["messages"].append(
+                {
+                    "role": "assistant",
+                    "content": assistant_message,
+                    "thinking": reasoning,
+                    "tool_calls": tool_calls,
+                }
+            )
+
+            if not tool_calls:
+                break
+
+            for tool_call in tool_calls:
+                if tool_call["function"]["name"] not in [
+                    tool["function"]["name"] for tool in conversation["tools"]
+                ]:
+                    raise ValueError(
+                        f'Model called non-existing tool \
+"{tool_call["function"]["name"]}" in the scope of this conversation.'
+                    )
+
+                conversation["messages"].append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "content": get_tool_response(
+                            tool_call["function"]["name"],
+                            tool_call["function"]["arguments"],
+                        ),
+                    }
+                )
+        else:
+            raise RepetitionError(
+                "Model called tools too often in a row (configure in \
+conversation.max_consecutive_tool_calls) without letting the user talk."
+            )
 
         turns += 1
 
@@ -142,9 +181,11 @@ def generate_assistant_response(
         return messages
 
     response = completion_wrapper(
+        **chat_config,
         messages=inject_special_prompt_into_system_prompt(
             conversation["messages"], conversation["specials"], ""
-        )
+        ),
+        tools=conversation["tools"],
     )
 
     message = get_text(response)

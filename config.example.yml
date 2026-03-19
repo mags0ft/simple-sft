@@ -12,6 +12,10 @@ conversation:
   # up to the limit defined by max_length. The probability is defined below.
   extend_prob: 0.75  # 0.75 = 75% chance per turn to add yet another turn
 
+  # Maximum amount a model may call tools and return to thinking/writing in a
+  # row without letting the user intervene.
+  max_consecutive_tool_calls: 8
+
 categories:
   # You may add any conversation topic here -- it'll be injected into the
   # generation prompt for the initial conversation starter, so make sure to
@@ -161,11 +165,12 @@ output:
   add_system_prompts: true
 
 tools:
-  # Whether to generate random weather data as a tool response.
-  simulate_weather: true
-
-  # Whether to prompt the LLM to generate fake, synthetic search result data
-  simulate_web_search: true
+  # Weather and search results are simulated through either randomness or LLMs.
+  # The fetch_webpage tool uses the requests library and bs4 to extract web
+  # content. Set its availability to zero if you don't want to risk that.
+  
+  # The calculator runs in a relatively stable sandbox but is not guaranteed to
+  # be 100% secure either. Deactivate if you feel unsure about this.
 
   available:
     # The tools to make available to the assistant when simulating an

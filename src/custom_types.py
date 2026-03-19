@@ -35,6 +35,7 @@ class ToolCallType(TypedDict):
 class MessagesType(BaseMessageType, total=False):
     tool_calls: Optional[list[ToolCallType]]
     thinking: Optional[str]
+    tool_call_id: Optional[str]
 
 
 class ConversationType(TypedDict):
