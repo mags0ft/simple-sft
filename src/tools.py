@@ -130,10 +130,112 @@ def _tool_fetch_webpage(args: dict[str, str]) -> dict:
 # ----------- Definitions -----------
 
 TOOLS = {
-    "weather": Tool([], [], {}, _tool_weather),
-    "web_search": Tool([], [], {}, _tool_web_search),
-    "calculator": Tool([], [], {}, _tool_calculator),
-    "fetch_webpage": Tool([], [], {}, _tool_fetch_webpage),
+    "weather": Tool(
+        [
+            "get_weather",
+            "weather_conditions",
+            "weather_report",
+            "local_weather",
+            "check_weather",
+        ],
+        [
+            "Retrieve current weather conditions and forecast for a specified location",
+            "Get the weather forecast and current conditions for a city",
+            "Look up temperature, conditions, and 6-day forecast for a location",
+            "Check current weather and upcoming forecast for a place",
+            "Fetch meteorological data for a geographic location",
+        ],
+        {
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "City or location name to get weather for",
+                }
+            },
+            "required": ["location"],
+        },
+        _tool_weather,
+    ),
+    "web_search": Tool(
+        [
+            "search_web",
+            "internet_search",
+            "query_engine",
+            "find_information",
+            "web_query",
+        ],
+        [
+            "Search the internet for information related to a query",
+            "Perform a web search to find relevant information and sources",
+            "Query search engines to retrieve results and summaries for a topic",
+            "Search online resources for information matching your query",
+            "Look up information from the web using search queries",
+        ],
+        {
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query to find relevant information",
+                }
+            },
+            "required": ["query"],
+        },
+        _tool_web_search,
+    ),
+    "calculator": Tool(
+        [
+            "calculate",
+            "math_eval",
+            "compute_expression",
+            "evaluate_math",
+            "mathematical_solver",
+        ],
+        [
+            "Evaluate a mathematical expression and return the result",
+            "Compute the result of a mathematical calculation",
+            "Solve a mathematical expression using safe arithmetic operations",
+            "Execute mathematical calculations with support for common functions",
+            "Calculate the value of a mathematical expression",
+        ],
+        {
+            "properties": {
+                "expression": {
+                    "type": "string",
+                    "description": "Mathematical expression to evaluate \
+(supports +, -, *, /, ^, sqrt, sin, cos, tan, log, exp, etc.)",
+                }
+            },
+            "required": ["expression"],
+        },
+        _tool_calculator,
+    ),
+    "fetch_webpage": Tool(
+        [
+            "fetch_page",
+            "get_webpage",
+            "extract_content",
+            "read_webpage",
+            "scrape_webpage",
+        ],
+        [
+            "Fetch a webpage and extract its text content",
+            "Retrieve the textual content from a URL",
+            "Download and parse a webpage to get readable text content",
+            "Extract text content from a web page at a given URL",
+            "Fetch and convert a webpage to plain text format",
+        ],
+        {
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "URL of the webpage to fetch (must start \
+with http:// or https://)",
+                }
+            },
+            "required": ["url"],
+        },
+        _tool_fetch_webpage,
+    ),
 }
 
 
@@ -151,3 +253,15 @@ def get_tool_response(name: str, args: str) -> str:
         return json.dumps(TOOLS[name].callback(parsed_args))
     except (KeyError, ValueError) as e:
         raise ToolError("The tool did not run successfully: ", e)
+
+
+def generate_random_tool_selection(tools: list[str]) -> list[dict]:
+    """
+    From a given list of wanted tool keys, generates a selection of tools with
+    variations in their names and descriptions, and returns them in the format
+    expected for OpenAI API tool definitions.
+    """
+
+    return [
+        json.loads(TOOLS[tool].generate_variation()) for tool in tools if tool in TOOLS
+    ]
