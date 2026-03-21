@@ -34,6 +34,7 @@ def generate_conversation(
     system_prompt: str,
     special_category: str,
     initial_question: str,
+    language: str,
     tools: list[TopLevelToolType],
 ) -> ConversationType:
     """
@@ -58,7 +59,7 @@ def generate_conversation(
 
     while turns < config["conversation"]["max_length"]:
         user_message = (
-            generate_user_message(conversation["messages"], category)
+            generate_user_message(conversation["messages"], category, language)
             if turns > 0
             else initial_question
         )
@@ -68,7 +69,7 @@ def generate_conversation(
 
         for _ in range(config["conversation"]["max_consecutive_tool_calls"]):
             assistant_message, reasoning, tool_calls = generate_assistant_response(
-                conversation
+                conversation, language
             )
             conversation["messages"].append(
                 {
@@ -118,7 +119,9 @@ conversation.max_consecutive_tool_calls) without letting the user talk."
     return post_processing(conversation)
 
 
-def generate_user_message(messages: list[MessagesType], category: str) -> str:
+def generate_user_message(
+    messages: list[MessagesType], category: str, language: str
+) -> str:
     """
     Generates a follow-up request or message the user could send to the
     assistant.
@@ -143,12 +146,13 @@ def generate_user_message(messages: list[MessagesType], category: str) -> str:
         )
 
     return simple_in_out(
-        FOLLOWUP_QUESTION_GENERATION_PROMPT % (category, constructed_summary)
+        FOLLOWUP_QUESTION_GENERATION_PROMPT % (category, constructed_summary, language)
     )
 
 
 def generate_assistant_response(
     conversation: ConversationType,
+    language: str,
 ) -> tuple[str, str, list[ToolCallType]]:
     """
     Generates the response of the assistant.
@@ -158,6 +162,7 @@ def generate_assistant_response(
         messages: list[MessagesType],
         special_category: str = "",
         backstage_instruction: str = "",
+        language: str = "English",
     ) -> list[MessagesType]:
         """
         Injects the special instructions (backstage instructions, special
@@ -175,7 +180,10 @@ def generate_assistant_response(
         }.get(special_category, "")
 
         messages[0]["content"] = concatenate_prompts(
-            messages[0]["content"], special_prompt, backstage_instruction
+            messages[0]["content"],
+            special_prompt,
+            backstage_instruction,
+            "Respond in %s." % language,
         )
 
         return messages
@@ -183,7 +191,7 @@ def generate_assistant_response(
     response = completion_wrapper(
         **chat_config,
         messages=inject_special_prompt_into_system_prompt(
-            conversation["messages"], conversation["specials"], ""
+            conversation["messages"], conversation["specials"], language
         ),
         tools=conversation["tools"],
     )

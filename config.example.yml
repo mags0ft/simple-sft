@@ -1,7 +1,19 @@
 # Configuration for simple-sft
 
-rows: 10000         # How many individual conversations to generate
+rows: 10000
+# How many individual conversations to generate -- will likely be overshot
+# because seed data generated in batches will not exactly fit the desired
+# distribution, but simple-sft will try to get as close as possible to this
+# number.
+
 model: "deepseek/deepseek-v3.2"
+# The model to use for generating the conversations. Make sure to use a model
+# with good reasoning capabilities and tool use if you want to generate
+# high-quality conversations. The model specified here will also be the one
+# whose capabilities are reflected in the generated conversations.
+
+run_name: "simple-sft-run"
+# Where to store the generated conversations.
 
 conversation:
   min_length: 1     # How many turns (prompt + assistant resposnse) at least
@@ -46,6 +58,16 @@ categories:
   "Prose & writing tasks": -1
   "Sports": -1
   "School": -1
+
+languages:
+  # The languages the dataset should be in; only percentages are supported.
+  "English": 0.6000
+  "Chinese": 0.1500
+  "Hindi": 0.1000
+  "Spanish": 0.0500
+  "French": 0.0500
+  "Japanese": 0.0250
+  "German": 0.0250
 
 special_categories:
   # These are extras which you can activate to further improve dataset quality
