@@ -7,6 +7,7 @@ expressions in a controlled manner.
 
 import ast
 import math
+from logging_manager import logger
 
 
 def safe_factorial(x):
@@ -84,6 +85,7 @@ def _eval(node, depth: int = 0):
     """
 
     if depth > 50:
+        logger.error("Expression too deeply nested at depth %d", depth)
         raise ValueError("Expression too deeply nested")
 
     if isinstance(node, ast.Expression):
@@ -143,6 +145,7 @@ def sandboxed_calculator_tool(args: dict[str, str]) -> dict:
     """
 
     expr = args.get("expression", "").strip()
+    logger.debug("Calculator called with expression: %s", expr)
 
     if len(expr) > 200:
         raise ValueError("Expression too long")
@@ -153,6 +156,7 @@ def sandboxed_calculator_tool(args: dict[str, str]) -> dict:
         tree = ast.parse(expr, mode="eval")
         result = _eval(tree)
     except Exception as e:
+        logger.exception("Calculator failed to evaluate expression: %s", expr)
         raise ValueError(f"Invalid expression: {e}")
 
     return {"result": float(result)}

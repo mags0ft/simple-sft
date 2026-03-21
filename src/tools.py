@@ -10,6 +10,7 @@ from calculator_sandbox import sandboxed_calculator_tool
 from llm_interface import simple_in_out
 from prompts import WEB_SEARCH_SIMULATION_PROMPT
 from webpage_fetcher import fetch_webpage_content_tool
+from logging_manager import logger
 
 
 class ToolError(Exception):
@@ -69,6 +70,8 @@ def _tool_weather(args: dict[str, str]):
     ]:
         raise ValueError("Invalid arguments for weather tool.")
 
+    logger.debug("Weather tool called with args: %s", args)
+
     weather_report = {
         "location": args.get("location", args.get("city", args.get("place"))),
         "units": "Celsius",
@@ -98,14 +101,21 @@ def _tool_web_search(args: dict[str, str]) -> dict:
     Simulates the web search tool.
     """
 
-    for _ in range(3):
+    logger.debug("Web search tool called with query: %s", args.get("query", ""))
+    for attempt in range(3):
         try:
-            return json.loads(
+            result = json.loads(
                 simple_in_out(WEB_SEARCH_SIMULATION_PROMPT % args.get("query", ""))
             )
+            logger.debug("Web search tool succeeded on attempt %d", attempt + 1)
+            return result
         except json.JSONDecodeError:
+            logger.warning(
+                "Web search tool returned invalid JSON on attempt %d", attempt + 1
+            )
             continue
 
+    logger.error("Web search tool failed to return valid JSON after 3 attempts")
     raise ValueError("Model did not return valid JSON for the web search tool.")
 
 
@@ -115,6 +125,7 @@ def _tool_calculator(args: dict[str, str]) -> dict:
     safely.
     """
 
+    logger.debug("Calculator tool called with args: %s", args)
     return sandboxed_calculator_tool(args)
 
 
@@ -124,6 +135,7 @@ def _tool_fetch_webpage(args: dict[str, str]) -> dict:
     BeautifulSoup.
     """
 
+    logger.debug("Fetch webpage tool called with args: %s", args)
     return fetch_webpage_content_tool(args)
 
 
@@ -247,11 +259,16 @@ def get_tool_response(name: str, args: str) -> str:
     try:
         parsed_args = json.loads(args)
     except json.JSONDecodeError:
+        logger.error("Tool call arguments were not valid JSON: %s", args)
         raise ValueError("Model did not return valid JSON for the tool call.")
 
     try:
-        return json.dumps(TOOLS[name].callback(parsed_args))
+        logger.debug("Calling tool '%s' with parsed args: %s", name, parsed_args)
+        res = TOOLS[name].callback(parsed_args)
+        logger.debug("Tool '%s' returned result type %s", name, type(res).__name__)
+        return json.dumps(res)
     except (KeyError, ValueError) as e:
+        logger.exception("Tool '%s' failed: %s", name, e)
         raise ToolError("The tool did not run successfully: ", e)
 
 
@@ -262,6 +279,8 @@ def generate_random_tool_selection(tools: list[str]) -> list[dict]:
     expected for OpenAI API tool definitions.
     """
 
-    return [
+    selection = [
         json.loads(TOOLS[tool].generate_variation()) for tool in tools if tool in TOOLS
     ]
+    logger.debug("Generated %d tool variations for tools: %s", len(selection), tools)
+    return selection

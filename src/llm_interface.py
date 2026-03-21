@@ -18,6 +18,7 @@ import openai
 from config_reader import config
 from constants import OPENAI_API_KEY_ENV, OPENAI_BASE_URL_ENV
 from custom_types import ToolCallType
+from logging_manager import logger
 
 
 load_dotenv()
@@ -25,6 +26,7 @@ load_dotenv()
 client = openai.OpenAI(
     base_url=getenv(OPENAI_BASE_URL_ENV), api_key=getenv(OPENAI_API_KEY_ENV)
 )
+logger.debug("OpenAI client configured (base_url=%s)", getenv(OPENAI_BASE_URL_ENV))
 
 base_config = {
     "model": config["model"],
@@ -63,21 +65,24 @@ def completion_wrapper(
     **kwargs,
 ) -> "Any":
     wait_amount = 2
-
-    for _ in range(config["api_query"]["max_retries"]):
+    for attempt in range(config["api_query"]["max_retries"]):
+        logger.debug("LLM request attempt %d", attempt + 1)
         response = client.chat.completions.create(**kwargs)
 
-        if (
-            response.status_code == 200
-            and response.choices[0].message
-            and response.choices[0].message.content
-        ):
+        if response.choices[0].message and response.choices[0].message.content:
+            logger.debug("LLM request succeeded on attempt %d", attempt + 1)
             return response
 
+        logger.warning(
+            "LLM request returned non-OK or empty on attempt %d, retrying", attempt + 1
+        )
         # We do this to fix possible rate limits
         time.sleep(wait_amount)
         wait_amount *= 2
 
+    logger.error(
+        "LLM request failed after %d attempts", config["api_query"]["max_retries"]
+    )
     raise OpenAIAPIRequestError(f"Failed to get a valid response.")
 
 
@@ -87,6 +92,7 @@ def _check_response(response: Any | None) -> None:
     """
 
     if response is None:
+        logger.error("Empty response (is None)")
         raise ValueError("Empty response (is None)")
 
     if not response.choices:
@@ -100,6 +106,7 @@ def get_text(response: Any | None) -> str:
 
     _check_response(response)
     text_content: str = response.choices[0].message.content  # type: ignore
+    logger.debug("Extracted text content of length %d", len(text_content or ""))
 
     return text_content.strip()
 
@@ -112,6 +119,12 @@ def get_reasoning(response: Any | None) -> str:
     _check_response(response)
     reasoning_content = getattr(response, "reasoning", "")
 
+    if not reasoning_content:
+        try:
+            reasoning_content = response.choices[0].message.reasoning_details.text  # type: ignore
+        except AttributeError:
+            reasoning_content = ""
+    logger.debug("Extracted reasoning content length %d", len(reasoning_content or ""))
     return reasoning_content.strip()
 
 
@@ -125,6 +138,7 @@ def get_tool_calls(response: Any | None) -> list[ToolCallType]:
     raw_tool_calls = response.choices[0].message.tool_calls  # type: ignore
 
     if not raw_tool_calls:
+        logger.debug("No tool calls found in response")
         return []
 
     tool_calls: list[ToolCallType] = []
@@ -152,12 +166,15 @@ def simple_in_out(input_: str) -> str:
     mode.
     """
 
+    logger.debug("Sending simple_in_out prompt (len=%d)", len(input_ or ""))
     response = completion_wrapper(
         messages=[{"role": "user", "content": input_.strip()}],
         **meta_config,
     )
 
-    return get_text(response)
+    text = get_text(response)
+    logger.debug("simple_in_out received text of length %d", len(text))
+    return text
 
 
 def process_many_out_of_order(prompts: list[str], n_threads: int = 8) -> list[str]:
@@ -169,6 +186,7 @@ def process_many_out_of_order(prompts: list[str], n_threads: int = 8) -> list[st
     results: list[str] = []
 
     def worker(prompt: str) -> None:
+        logger.debug("Worker thread sending prompt (len=%d)", len(prompt or ""))
         results.append(simple_in_out(prompt))
 
     threads = []
@@ -186,6 +204,7 @@ def process_many_out_of_order(prompts: list[str], n_threads: int = 8) -> list[st
     for thread in threads:
         thread.join()
 
+    logger.debug("process_many_out_of_order completed (%d results)", len(results))
     return results
 
 
@@ -200,6 +219,7 @@ def retrieve_several_as_structured_output(
     JSON array format.
     """
 
+    logger.debug("Retrieving structured output for prompt (len=%d)", len(prompt or ""))
     response = completion_wrapper(
         messages=[{"role": "user", "content": prompt.strip()}],
         response_format={
@@ -216,11 +236,23 @@ def retrieve_several_as_structured_output(
     )
 
     response_text = get_text(response)
+    logger.debug("Structured response text length %d", len(response_text or ""))
 
     try:
         response_json = json.loads(response_text)
-        return response_json[resp_json_array_name]
+
+        if isinstance(response_json, dict):
+            return response_json[resp_json_array_name]
+        elif isinstance(response_json, list):
+            logger.debug("Response JSON is a list, returning it directly")
+            return response_json
+        else:
+            logger.error("Unexpected JSON structure: %s", type(response_json).__name__)
+            raise ValueError(
+                f"Unexpected JSON structure: {type(response_json).__name__}"
+            )
     except (json.JSONDecodeError, KeyError) as e:
+        logger.error("Failed to parse structured response: %s", e)
         raise ValueError(
             f"Failed to parse the response as JSON or expected key not found: {e}"
         )

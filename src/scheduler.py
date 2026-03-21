@@ -9,9 +9,8 @@ import threading
 import os
 import uuid
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from fsspec import spec
 from config_reader import config
 from llm_interface import retrieve_several_as_structured_output
 from prompts import (
@@ -19,6 +18,11 @@ from prompts import (
     SYSTEM_PROMPT_GENERATION_PROMPT,
     concatenate_prompts,
 )
+
+from logging_manager import logger
+
+
+_JSONL_WRITE_LOCK = threading.Lock()
 
 
 @dataclass
@@ -28,7 +32,7 @@ class Category:
     """
 
     n_rows_total: int = 0
-    n_rows_per_language: dict[str, int] = {}
+    n_rows_per_language: dict[str, int] = field(default_factory=dict)
     name: str = ""
 
 
@@ -40,6 +44,7 @@ def initialize_output_directory(run_name: str) -> tuple[str, str]:
     RUN_NAME = run_name + "_" + str(uuid.uuid4())[:8]
 
     os.makedirs(os.path.join("data", RUN_NAME), exist_ok=True)
+    logger.debug("Initialized output directory: %s", RUN_NAME)
 
     # create system_prompts.jsonl and conversations.jsonl files
     system_prompts_path = os.path.join("data", RUN_NAME, f"system_prompts.jsonl")
@@ -60,13 +65,15 @@ def write_atomically_to_jsonl(file_path: str, data: list[dict]) -> None:
     file path in JSONL format.
     """
 
-    with threading.Lock():
-        with open(file_path, "a") as f:
-            f.write(
-                "\n".join(
-                    [json.dumps(item, ensure_ascii=False) for item in data]
-                )
+    with _JSONL_WRITE_LOCK:
+        logger.debug("Writing %d items to %s", len(data), file_path)
+        with open(file_path, "a") as file_handle:
+            file_handle.write(
+                "\n".join([json.dumps(item, ensure_ascii=False) for item in data])
             )
+            if data:
+                file_handle.write("\n")
+        logger.debug("Wrote %d items to %s", len(data), file_path)
 
 
 def generate_system_prompts_in_parallel(output_file_path: str) -> None:
@@ -78,8 +85,13 @@ def generate_system_prompts_in_parallel(output_file_path: str) -> None:
 
     themes = config["prompting"]["system_prompt_generation_themes"]
     formats = config["prompting"]["system_prompt_formats"]
+    n_system_prompts = config["prompting"]["n_system_prompts"]
+    n_threads = config["n_threads"]
 
-    def worker(n_prompts: int, theme: str, format: str):
+    assert isinstance(n_system_prompts, int) and n_system_prompts > 0
+    assert isinstance(n_threads, int) and n_threads > 0
+
+    def worker(n_prompts: int):
         """
         The worker function for generating system prompts. Each thread runs
         this function with its own theme and format.
@@ -93,8 +105,18 @@ def generate_system_prompts_in_parallel(output_file_path: str) -> None:
 
         left_to_generate = n_prompts
 
+        logger.debug(
+            "Thread %s: starting to generate %d prompts (special=%s)",
+            threading.get_ident(),
+            n_prompts,
+            is_special,
+        )
+
         while left_to_generate > 0:
-            base_prompt = SYSTEM_PROMPT_GENERATION_PROMPT % (theme, format)
+            theme = random.choice(themes)
+            format_ = random.choice(formats)
+
+            base_prompt = SYSTEM_PROMPT_GENERATION_PROMPT % (theme, format_)
             input_prompt = (
                 base_prompt
                 if not is_special
@@ -102,21 +124,56 @@ def generate_system_prompts_in_parallel(output_file_path: str) -> None:
             )
 
             prompts = retrieve_several_as_structured_output(
-                input_prompt
+                input_prompt,
                 resp_json_array_name="prompts",
             )
 
-            left_to_generate -= len(prompts)
+            if not prompts:
+                logger.error(
+                    "Thread %s: Failed to generate system prompts.",
+                    threading.get_ident(),
+                )
+                raise ValueError("Failed to generate system prompts.")
+
+            prompts_to_write = prompts[:left_to_generate]
+
+            left_to_generate -= len(prompts_to_write)
 
             # write prompts atomically to file:
             write_atomically_to_jsonl(
                 output_file_path,
-                [{"prompt": prompt} for prompt in prompts],
+                [{"prompt": prompt} for prompt in prompts_to_write],
             )
 
-    threads = []
-    
+        logger.debug("Thread %s: finished generating prompts", threading.get_ident())
 
+    if n_system_prompts == 0:
+        logger.info("No system prompts requested (n_system_prompts == 0)")
+        return
+
+    thread_count = min(n_threads, n_system_prompts)
+    base_prompts_per_thread, remainder = divmod(n_system_prompts, thread_count)
+
+    threads = []
+
+    for thread_index in range(thread_count):
+        prompts_for_thread = base_prompts_per_thread
+        if thread_index < remainder:
+            prompts_for_thread += 1
+
+        thread = threading.Thread(target=worker, args=(prompts_for_thread,))
+        thread.start()
+        logger.debug(
+            "Started system prompt thread %d (id=%s) with %d prompts",
+            thread_index,
+            thread.ident,
+            prompts_for_thread,
+        )
+        threads.append(thread)
+
+    for thread in threads:
+        thread.join()
+    logger.info("All system prompt threads joined")
 
 
 def generate_conversations_in_parallel(
@@ -233,6 +290,8 @@ def main_flow():
     n_threads = config["n_threads"]
     n_rows = config["rows"]
 
+    logger.debug("Main flow started: n_threads=%d, n_rows=%d", n_threads, n_rows)
+
     assert isinstance(n_threads, int) and n_threads > 0
     assert isinstance(n_rows, int) and n_rows > 0
 
@@ -243,4 +302,4 @@ def main_flow():
     )
 
     generate_system_prompts_in_parallel(system_prompts_path)
-    generate_conversations_in_parallel(conversations_path, system_prompts_path)
+    # generate_conversations_in_parallel(conversations_path, system_prompts_path)

@@ -6,6 +6,7 @@ from random import choice
 
 from llm_interface import process_many_out_of_order
 from prompts import SYSTEM_PROMPT_GENERATION_ADDITION, SYSTEM_PROMPT_GENERATION_PROMPT
+from logging_manager import logger
 
 
 def generate_system_prompts(
@@ -19,6 +20,12 @@ def generate_system_prompts(
     Generates a batch of versatile system prompts.
     """
 
+    logger.debug(
+        "Generating %d system prompts (special=%s, percentage=%s)",
+        amount,
+        special_prompts,
+        special_prompts_percentage,
+    )
     assert not special_prompts or special_prompts_percentage == 0.0
     assert special_prompts_percentage < 1.0
 

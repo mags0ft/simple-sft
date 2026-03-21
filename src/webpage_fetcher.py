@@ -4,6 +4,7 @@ Fetches and extracts text from a webpage using requests and BeautifulSoup.
 
 from bs4 import BeautifulSoup
 import requests
+from logging_manager import logger
 
 
 def fetch_webpage_html(url: str) -> str:
@@ -11,7 +12,10 @@ def fetch_webpage_html(url: str) -> str:
     The generic function to fetch a webpage in its pure HTML text form.
     """
 
-    return requests.get(url).text
+    logger.debug("Fetching HTML for URL: %s", url)
+    resp = requests.get(url)
+    resp.raise_for_status()
+    return resp.text
 
 
 def extract_text_from_html(html: str) -> str:
@@ -30,6 +34,7 @@ def fetch_webpage_content_tool(args: dict[str, str]) -> dict:
     """
 
     if not isinstance(args, dict):
+        logger.error("fetch_webpage: args not a dict: %s", type(args))
         raise ValueError("Arguments for the fetch_webpage tool must be a JSON object.")
 
     if "url" not in args:
@@ -44,7 +49,11 @@ def fetch_webpage_content_tool(args: dict[str, str]) -> dict:
 
     try:
         html = fetch_webpage_html(url)
-
-        return {"text": extract_text_from_html(html)}
+        text = extract_text_from_html(html)
+        logger.debug(
+            "Fetched and extracted text length=%d for url=%s", len(text or ""), url
+        )
+        return {"text": text}
     except requests.RequestException as e:
+        logger.exception("Failed to fetch webpage: %s", url)
         return {"error": f"Failed to fetch the webpage: {e}"}

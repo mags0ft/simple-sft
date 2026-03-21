@@ -21,6 +21,7 @@ from prompts import (
 )
 from custom_types import ConversationType, MessagesType, ToolCallType, TopLevelToolType
 from tools import get_tool_response
+from logging_manager import logger
 
 
 class RepetitionError(Exception):
@@ -41,6 +42,12 @@ def generate_conversation(
     Generates a conversation.
     """
 
+    logger.debug(
+        "Generating conversation for category=%s, language=%s, special=%s",
+        category,
+        language,
+        special_category,
+    )
     assert category.strip() != ""
     assert not config["output"]["add_system_prompts"] or system_prompt.strip() != ""
 
@@ -54,6 +61,7 @@ def generate_conversation(
 
     if config["output"]["add_system_prompts"]:
         conversation["messages"].append({"role": "system", "content": system_prompt})
+        logger.debug("Added system prompt to conversation %s", conversation["id"])
 
     turns = 0
 
@@ -64,12 +72,24 @@ def generate_conversation(
             else initial_question
         )
         conversation["messages"].append({"role": "user", "content": user_message})
+        logger.debug(
+            "Conversation %s: user message (turn=%d) len=%d",
+            conversation["id"],
+            turns,
+            len(user_message or ""),
+        )
 
         # Handle assistant responses with tool calls:
 
         for _ in range(config["conversation"]["max_consecutive_tool_calls"]):
             assistant_message, reasoning, tool_calls = generate_assistant_response(
                 conversation, language
+            )
+            logger.debug(
+                "Conversation %s: assistant replied (turn=%d) tool_calls=%d",
+                conversation["id"],
+                turns,
+                len(tool_calls),
             )
             conversation["messages"].append(
                 {
@@ -81,6 +101,9 @@ def generate_conversation(
             )
 
             if not tool_calls:
+                logger.debug(
+                    "Conversation %s: no tool calls, continuing", conversation["id"]
+                )
                 break
 
             for tool_call in tool_calls:
@@ -101,6 +124,11 @@ def generate_conversation(
                             tool_call["function"]["arguments"],
                         ),
                     }
+                )
+                logger.debug(
+                    "Conversation %s: appended tool result for tool %s",
+                    conversation["id"],
+                    tool_call["function"]["name"],
                 )
         else:
             raise RepetitionError(
@@ -188,6 +216,11 @@ def generate_assistant_response(
 
         return messages
 
+    logger.debug(
+        "Generating assistant response for conversation %s (language=%s)",
+        conversation["id"],
+        language,
+    )
     response = completion_wrapper(
         **chat_config,
         messages=inject_special_prompt_into_system_prompt(
@@ -199,6 +232,14 @@ def generate_assistant_response(
     message = get_text(response)
     reasoning = get_reasoning(response)
     tool_calls = get_tool_calls(response)
+
+    logger.debug(
+        "Assistant response generated (conv=%s) text_len=%d reasoning_len=%d tool_calls=%d",
+        conversation["id"],
+        len(message or ""),
+        len(reasoning or ""),
+        len(tool_calls or []),
+    )
 
     return (message, reasoning or "", tool_calls or [])
 
