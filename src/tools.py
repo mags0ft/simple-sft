@@ -202,7 +202,7 @@ TOOLS = {
                 "expression": {
                     "type": "string",
                     "description": "Mathematical expression to evaluate \
-(supports +, -, *, /, ^, sqrt, sin, cos, tan, log, exp, etc.)",
+(supports +, -, *, /, ^, sqrt, sin, cos, tan, log, exp, parentheses)",
                 }
             },
             "required": ["expression"],

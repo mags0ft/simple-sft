@@ -1,19 +1,28 @@
 # Configuration for simple-sft
 
-rows: 10000
 # How many individual conversations to generate -- will likely be overshot
 # because seed data generated in batches will not exactly fit the desired
 # distribution, but simple-sft will try to get as close as possible to this
 # number.
+rows: 10000
 
-model: "deepseek/deepseek-v3.2"
 # The model to use for generating the conversations. Make sure to use a model
 # with good reasoning capabilities and tool use if you want to generate
 # high-quality conversations. The model specified here will also be the one
 # whose capabilities are reflected in the generated conversations.
+model: "deepseek/deepseek-v3.2"
 
-run_name: "simple-sft-run"
 # Where to store the generated conversations.
+run_name: "simple-sft-run"
+
+# How many threads to use for parallel generation of conversations.
+n_threads: 8
+
+# When requesting cloud LLMs, in order to save input tokens, some data is
+# generated in batches. This parameter controls the size of said batches. The
+# smaller this parameter, the less efficient the generation becomes, however
+# the closer the actual resulting number of rows is to the desired amount.
+batch_size: 100
 
 conversation:
   min_length: 1     # How many turns (prompt + assistant resposnse) at least
