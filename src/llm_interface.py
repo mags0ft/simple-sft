@@ -187,3 +187,40 @@ def process_many_out_of_order(prompts: list[str], n_threads: int = 8) -> list[st
         thread.join()
 
     return results
+
+
+def retrieve_several_as_structured_output(
+    prompt: str, resp_json_array_name: str = "messages"
+) -> list[str]:
+    """
+    Retrieves several outputs for a given prompt in parallel and returns them
+    as a list of strings.
+
+    Uses the OpenAI API's structured_output feature to get the outputs in a
+    JSON array format.
+    """
+
+    response = completion_wrapper(
+        messages=[{"role": "user", "content": prompt.strip()}],
+        response_format={
+            "type": "json_object",
+            "properties": {
+                resp_json_array_name: {
+                    "type": "array",
+                    "items": {"type": "string"},
+                }
+            },
+            "required": [resp_json_array_name],
+        },
+        **meta_config,
+    )
+
+    response_text = get_text(response)
+
+    try:
+        response_json = json.loads(response_text)
+        return response_json[resp_json_array_name]
+    except (json.JSONDecodeError, KeyError) as e:
+        raise ValueError(
+            f"Failed to parse the response as JSON or expected key not found: {e}"
+        )

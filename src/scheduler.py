@@ -3,6 +3,7 @@ Schedules the execution of n threads in parallel and correctly writes their
 responses atomically into an output JSONL file. Handles resuming after a crash.
 """
 
+import json
 import random
 import threading
 import os
@@ -12,6 +13,12 @@ from dataclasses import dataclass
 
 from fsspec import spec
 from config_reader import config
+from llm_interface import retrieve_several_as_structured_output
+from prompts import (
+    SYSTEM_PROMPT_GENERATION_ADDITION,
+    SYSTEM_PROMPT_GENERATION_PROMPT,
+    concatenate_prompts,
+)
 
 
 @dataclass
@@ -47,6 +54,21 @@ def initialize_output_directory(run_name: str) -> tuple[str, str]:
     return system_prompts_path, conversations_path
 
 
+def write_atomically_to_jsonl(file_path: str, data: list[dict]) -> None:
+    """
+    Using the threading library, writes the given data atomically to the given
+    file path in JSONL format.
+    """
+
+    with threading.Lock():
+        with open(file_path, "a") as f:
+            f.write(
+                "\n".join(
+                    [json.dumps(item, ensure_ascii=False) for item in data]
+                )
+            )
+
+
 def generate_system_prompts_in_parallel(output_file_path: str) -> None:
     """
     Generates system prompts in parallel using multiple threads. Needs to store
@@ -72,7 +94,29 @@ def generate_system_prompts_in_parallel(output_file_path: str) -> None:
         left_to_generate = n_prompts
 
         while left_to_generate > 0:
-            
+            base_prompt = SYSTEM_PROMPT_GENERATION_PROMPT % (theme, format)
+            input_prompt = (
+                base_prompt
+                if not is_special
+                else concatenate_prompts(base_prompt, SYSTEM_PROMPT_GENERATION_ADDITION)
+            )
+
+            prompts = retrieve_several_as_structured_output(
+                input_prompt
+                resp_json_array_name="prompts",
+            )
+
+            left_to_generate -= len(prompts)
+
+            # write prompts atomically to file:
+            write_atomically_to_jsonl(
+                output_file_path,
+                [{"prompt": prompt} for prompt in prompts],
+            )
+
+    threads = []
+    
+
 
 
 def generate_conversations_in_parallel(
