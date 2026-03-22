@@ -36,7 +36,7 @@ class Category:
     name: str = ""
 
 
-def initialize_output_directory(run_name: str) -> tuple[str, str]:
+def initialize_output_directory(run_name: str) -> tuple[str, str, str]:
     """
     Initializes the output directory for the given run name.
     """
@@ -46,9 +46,10 @@ def initialize_output_directory(run_name: str) -> tuple[str, str]:
     os.makedirs(os.path.join("data", RUN_NAME), exist_ok=True)
     logger.debug("Initialized output directory: %s", RUN_NAME)
 
-    # create system_prompts.jsonl and conversations.jsonl files
+    # create system_prompts.jsonl, conversations.jsonl and state.json files
     system_prompts_path = os.path.join("data", RUN_NAME, f"system_prompts.jsonl")
     conversations_path = os.path.join("data", RUN_NAME, f"conversations.jsonl")
+    state_path = os.path.join("data", RUN_NAME, f"state.json")
 
     with open(system_prompts_path, "w") as f:
         pass
@@ -56,7 +57,45 @@ def initialize_output_directory(run_name: str) -> tuple[str, str]:
     with open(conversations_path, "w") as f:
         pass
 
-    return system_prompts_path, conversations_path
+    with open(state_path, "w") as f:
+        json.dump(
+            {
+                "run_name": RUN_NAME,
+                "n_rows_total": config["rows"],
+                "n_rows_generated": 0,
+                "categories": config["categories"],
+                "languages": config["languages"],
+            },
+            f,
+            indent=4,
+        )
+
+    return system_prompts_path, conversations_path, state_path
+
+
+def update_state_file(state_file_path: str, diff: dict) -> None:
+    """
+    Updates the state file with the given differences.
+    """
+
+    with open(state_file_path, "r") as f:
+        state = json.load(f)
+
+    state.update(diff)
+
+    with open(state_file_path, "w") as f:
+        json.dump(state, f, indent=4)
+
+
+def read_state_file(state_file_path: str) -> dict:
+    """
+    Reads the state file and returns its content as a dictionary.
+    """
+
+    with open(state_file_path, "r") as f:
+        state = json.load(f)
+
+    return state
 
 
 def write_atomically_to_jsonl(file_path: str, data: list[dict]) -> None:
@@ -116,7 +155,11 @@ def generate_system_prompts_in_parallel(output_file_path: str) -> None:
             theme = random.choice(themes)
             format_ = random.choice(formats)
 
-            base_prompt = SYSTEM_PROMPT_GENERATION_PROMPT % (theme, format_)
+            base_prompt = SYSTEM_PROMPT_GENERATION_PROMPT % (
+                theme,
+                format_,
+                min(left_to_generate, config["batch_size"]),
+            )
             input_prompt = (
                 base_prompt
                 if not is_special
@@ -135,7 +178,7 @@ def generate_system_prompts_in_parallel(output_file_path: str) -> None:
                 )
                 raise ValueError("Failed to generate system prompts.")
 
-            prompts_to_write = prompts[:left_to_generate]
+            prompts_to_write = prompts
 
             left_to_generate -= len(prompts_to_write)
 
@@ -173,6 +216,7 @@ def generate_system_prompts_in_parallel(output_file_path: str) -> None:
 
     for thread in threads:
         thread.join()
+
     logger.info("All system prompt threads joined")
 
 
@@ -280,12 +324,25 @@ def distribute_categories(
     return results
 
 
-def main_flow():
+def main_flow(
+    run_name: str = "",
+    new_run: bool = True,
+    resume_run: bool = False,
+    generate_system_prompts_only: bool = False,
+):
     """
     Main flow of the program. Needs to handle a lot: Orchestrating the topic,
     language and system prompt distribution among conversations, correctly
     batching the generated initial prompts and system prompts etc.
     """
+
+    assert not (new_run and resume_run)
+    assert (
+        generate_system_prompts_only and not (resume_run or new_run)
+    ) or not generate_system_prompts_only
+
+    if not run_name:
+        run_name = config["run_name"]
 
     n_threads = config["n_threads"]
     n_rows = config["rows"]
@@ -295,11 +352,24 @@ def main_flow():
     assert isinstance(n_threads, int) and n_threads > 0
     assert isinstance(n_rows, int) and n_rows > 0
 
-    distribution = distribute_categories(n_rows, config["categories"])
-
-    system_prompts_path, conversations_path = initialize_output_directory(
+    system_prompts_path, conversations_path, state_path = initialize_output_directory(
         config["run_name"]
     )
 
-    generate_system_prompts_in_parallel(system_prompts_path)
-    # generate_conversations_in_parallel(conversations_path, system_prompts_path)
+    if new_run:
+        distribution = distribute_categories(n_rows, config["categories"])
+
+        generate_system_prompts_in_parallel(system_prompts_path)
+        generate_conversations_in_parallel(conversations_path, system_prompts_path)
+
+    elif resume_run:
+        state = read_state_file(state_path)
+        logger.debug(
+            "Resuming run %s: %d/%d rows generated",
+            state["run_name"],
+            state["n_rows_generated"],
+            state["n_rows_total"],
+        )
+
+    elif generate_system_prompts_only:
+        generate_system_prompts_in_parallel(system_prompts_path)

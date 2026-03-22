@@ -64,6 +64,9 @@ class OpenAIAPIRequestError(Exception):
 def completion_wrapper(
     **kwargs,
 ) -> "Any":
+    if "messages" in kwargs:
+        print(kwargs["messages"])
+
     wait_amount = 2
     for attempt in range(config["api_query"]["max_retries"]):
         logger.debug("LLM request attempt %d", attempt + 1)
@@ -223,14 +226,22 @@ def retrieve_several_as_structured_output(
     response = completion_wrapper(
         messages=[{"role": "user", "content": prompt.strip()}],
         response_format={
-            "type": "json_object",
-            "properties": {
-                resp_json_array_name: {
-                    "type": "array",
-                    "items": {"type": "string"},
-                }
+            "type": "json_schema",
+            "json_schema": {
+                "name": "response",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        resp_json_array_name: {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        }
+                    },
+                    "required": [resp_json_array_name],
+                    "additional_properties": False,
+                },
             },
-            "required": [resp_json_array_name],
         },
         **meta_config,
     )

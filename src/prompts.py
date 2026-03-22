@@ -8,10 +8,17 @@ from logging_manager import logger
 
 
 SYSTEM_PROMPT_GENERATION_PROMPT = """
-You're an expert at giving LLMs instructions via a system prompt. Come up \
-with creative, generic prompts for an AI chatbot. Prompt theme: %s. Format \
-the prompts as a %s. Respond in valid JSON. Generate ~100 prompts of varying \
-length and complexity.
+You're an expert LLM prompt engineer. You write system prompts. Come up with \
+creative, varying system prompts for an AI chatbot. Prompt theme: %s. Format \
+the prompts as a %s. Respond in valid JSON. Generate %s prompts of varying \
+length and complexity. Each item in the response array should be a \
+self-contained system prompt. Do not give them a title, ID, name or preamble.
+
+**Important**: a system prompt is not a prompt sent by a user, but rather an \
+"instruction from the off" given to the AI as context for the following \
+conversation. It may include additional info, guidelines, rules etc., but \
+does not represent a user directly talking to the assistant. The actual \
+request of the user is out-of-scope for your task.
 """.strip()
 
 SYSTEM_PROMPT_GENERATION_ADDITION = """
@@ -25,9 +32,13 @@ FOLLOWUP_QUESTION_GENERATION_PROMPT = """
 You are a user who is interacting with an AI chatbot. You are currently \
 talking in the context of the topic "%s". This is your chat history so far:
 
+BEGIN OF CHAT HISTORY
+
 ```
 %s
 ```
+
+END OF CHAT HISTORY
 
 Generate a reasonable follow-up request/message from the viewpoint of the user.
 
@@ -40,7 +51,7 @@ WEB_SEARCH_SIMULATION_PROMPT = """
 You are a web search engine. You must answer in valid JSON and return 3 to 10 \
 diverse, synthetic, simulated "search results" for a query. Each search \
 result should have a "title" and "summary" field. Add realism like \
-unrelated info, irrelevant results, typos and helpful results.
+unrelated info, irrelevant results, typos but also helpful results.
 
 Only respond with the JSON, no Markdown formatting or preamble or similar. Do \
 not include any explanation or commentary, just the JSON.
