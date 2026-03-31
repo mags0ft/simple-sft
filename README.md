@@ -33,3 +33,7 @@ Open an issue if you have any questions.
 
 This project is licensed under the MIT license.
 See the [`LICENSE`](./LICENSE) file to learn more.
+
+## AI disclosure
+
+Apart from non-critical features (like logging), **NO** code in this project was vibe-coded using AI assistants.
