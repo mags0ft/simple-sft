@@ -36,4 +36,4 @@ See the [`LICENSE`](./LICENSE) file to learn more.
 
 ## AI disclosure
 
-Apart from non-critical features (like logging), **NO** code in this project was vibe-coded using AI assistants.
+Apart from non-critical features (like logging), **NO** code in this project was created using AI assistants.
