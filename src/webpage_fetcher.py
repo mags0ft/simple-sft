@@ -53,6 +53,12 @@ def fetch_webpage_content_tool(args: dict[str, str]) -> dict:
         logger.debug(
             "Fetched and extracted text length=%d for url=%s", len(text or ""), url
         )
+
+        # limit text length to 2048 characters to avoid overwhelming the model
+        # with too much content
+        if len(text) > 2048:
+            text = text[:2048] + "... [truncated]"
+
         return {"text": text}
     except requests.RequestException as e:
         logger.exception("Failed to fetch webpage: %s", url)

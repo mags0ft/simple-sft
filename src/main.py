@@ -4,7 +4,6 @@ The main file to control the program execution flow.
 
 from argparse import ArgumentParser
 
-from config_reader import config
 from scheduler import main_flow
 from logging_manager import logger
 

@@ -7,10 +7,12 @@ import json
 import random
 
 from calculator_sandbox import sandboxed_calculator_tool
-from llm_interface import simple_in_out
+from custom_types import TopLevelToolType
+from llm_interface import clean_response, simple_in_out
 from prompts import WEB_SEARCH_SIMULATION_PROMPT
 from webpage_fetcher import fetch_webpage_content_tool
 from logging_manager import logger
+from config_reader import config
 
 
 class ToolError(Exception):
@@ -35,7 +37,7 @@ class Tool:
         self.schema = schema
         self.callback = callback
 
-    def generate_variation(self) -> str:
+    def generate_variation(self) -> TopLevelToolType:
         """
         Generates a random variation of the tool.
         """
@@ -43,16 +45,14 @@ class Tool:
         params = {"type": "object"}
         params.update(self.schema)
 
-        return json.dumps(
-            {
-                "type": "function",
-                "function": {
-                    "name": random.choice(self.possible_names),
-                    "description": random.choice(self.possible_descriptions),
-                    "parameters": params,
-                },
-            }
-        )
+        return {
+            "type": "function",
+            "function": {
+                "name": random.choice(self.possible_names),
+                "description": random.choice(self.possible_descriptions),
+                "parameters": params,
+            },
+        }
 
 
 # ------------ Callbacks ------------
@@ -105,7 +105,9 @@ def _tool_web_search(args: dict[str, str]) -> dict:
     for attempt in range(3):
         try:
             result = json.loads(
-                simple_in_out(WEB_SEARCH_SIMULATION_PROMPT % args.get("query", ""))
+                clean_response(
+                    simple_in_out(WEB_SEARCH_SIMULATION_PROMPT % args.get("query", ""))
+                )
             )
             logger.debug("Web search tool succeeded on attempt %d", attempt + 1)
             return result
@@ -272,15 +274,37 @@ def get_tool_response(name: str, args: str) -> str:
         raise ToolError("The tool did not run successfully: ", e)
 
 
-def generate_random_tool_selection(tools: list[str]) -> list[dict]:
+def generate_random_tool_selection(tools: list[str]) -> list[TopLevelToolType]:
     """
     From a given list of wanted tool keys, generates a selection of tools with
     variations in their names and descriptions, and returns them in the format
     expected for OpenAI API tool definitions.
     """
 
-    selection = [
-        json.loads(TOOLS[tool].generate_variation()) for tool in tools if tool in TOOLS
-    ]
+    selection = [TOOLS[tool].generate_variation() for tool in tools if tool in TOOLS]
     logger.debug("Generated %d tool variations for tools: %s", len(selection), tools)
+
     return selection
+
+
+def pick_random_tools() -> list[TopLevelToolType]:
+    """
+    Randomly picks a subset of tools to be included in a conversation, and
+    generates variations for them.
+    """
+
+    tool_weights: dict[str, float] = config["tools"]["available"]
+    picked_tools: list[str] = []
+
+    for tool in tool_weights:
+        if tool not in TOOLS:
+            logger.warning(
+                "Tool '%s' specified in config is not defined in the code and will be ignored.",
+                tool,
+            )
+            continue
+
+        if random.random() < tool_weights[tool]:
+            picked_tools.append(tool)
+
+    return generate_random_tool_selection(picked_tools)

@@ -20,7 +20,6 @@ from constants import OPENAI_API_KEY_ENV, OPENAI_BASE_URL_ENV
 from custom_types import ToolCallType
 from logging_manager import logger
 
-
 load_dotenv()
 
 client = openai.OpenAI(
@@ -55,6 +54,51 @@ chat_config = {
 }
 
 
+def clean_response(text: str) -> str:
+    """
+    Removes wrappers and stuff.
+    """
+
+    forbidden_starts = [
+        "answer",
+        "prompt",
+        "response",
+        "question",
+        "request",
+        "input",
+        "```md",
+        "```python",
+        "```javascript",
+        "```java",
+        "```text",
+        "```json",
+        "```",
+    ]
+
+    def remove_start(start: str, text: str) -> str:
+        if text.lower().startswith(start):
+            return text[len(start) :].strip()
+
+        return text
+
+    def which_forbidden_start(text: str) -> str:
+        for start in forbidden_starts:
+            if text.lower().startswith(start):
+                return start
+
+        return ""
+
+    while start := which_forbidden_start(text):
+        text = remove_start(start, text)
+
+    text = text.strip()
+
+    if text.endswith("```"):
+        text = text[:-3].strip()
+
+    return text
+
+
 class OpenAIAPIRequestError(Exception):
     """
     Error raised when there is no response available.
@@ -64,21 +108,35 @@ class OpenAIAPIRequestError(Exception):
 def completion_wrapper(
     **kwargs,
 ) -> "Any":
-    if "messages" in kwargs:
-        print(kwargs["messages"])
+    # if "messages" in kwargs:
+    #     print(kwargs["messages"])
 
-    wait_amount = 2
+    wait_amount = 4
     for attempt in range(config["api_query"]["max_retries"]):
         logger.debug("LLM request attempt %d", attempt + 1)
-        response = client.chat.completions.create(**kwargs)
+        try:
+            response = client.chat.completions.create(**kwargs)
 
-        if response.choices[0].message and response.choices[0].message.content:
-            logger.debug("LLM request succeeded on attempt %d", attempt + 1)
-            return response
+            if response.choices[0].message and (
+                response.choices[0].message.content
+                or response.choices[0].message.tool_calls
+            ):
+                logger.debug("LLM request succeeded on attempt %d", attempt + 1)
+
+                return response
+        except openai.RateLimitError as e:
+            logger.warning(
+                "LLM request hit rate limit on attempt %d: %s", attempt + 1, e
+            )
+            time.sleep(wait_amount)
+            wait_amount *= 2
+
+            continue
 
         logger.warning(
             "LLM request returned non-OK or empty on attempt %d, retrying", attempt + 1
         )
+
         # We do this to fix possible rate limits
         time.sleep(wait_amount)
         wait_amount *= 2
@@ -120,7 +178,7 @@ def get_reasoning(response: Any | None) -> str:
     """
 
     _check_response(response)
-    reasoning_content = getattr(response, "reasoning", "")
+    reasoning_content = getattr(response.choices[0].message, "reasoning", "")  # type: ignore
 
     if not reasoning_content:
         try:
@@ -128,6 +186,7 @@ def get_reasoning(response: Any | None) -> str:
         except AttributeError:
             reasoning_content = ""
     logger.debug("Extracted reasoning content length %d", len(reasoning_content or ""))
+
     return reasoning_content.strip()
 
 

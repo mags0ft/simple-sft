@@ -10,7 +10,7 @@ rows: 10000
 # with good reasoning capabilities and tool use if you want to generate
 # high-quality conversations. The model specified here will also be the one
 # whose capabilities are reflected in the generated conversations.
-model: "deepseek/deepseek-v3.2"
+model: "deepseek/deepseek-v4-flash"
 
 # Where to store the generated conversations.
 run_name: "simple-sft-run"
@@ -22,7 +22,13 @@ n_threads: 8
 # generated in batches. This parameter controls the size of said batches. The
 # smaller this parameter, the less efficient the generation becomes, however
 # the closer the actual resulting number of rows is to the desired amount.
-batch_size: 100
+batch_size: 32
+
+# When to write the generated conversations to the output file. Setting this to
+# a lower number means that conversations will be written more often, which is
+# safer in case of crashes. Before writing, they are kept in an in-memory
+# buffer.
+write_every_n_conversations: 4
 
 conversation:
   min_length: 1     # How many turns (prompt + assistant resposnse) at least
@@ -189,7 +195,7 @@ output:
   include_reasoning_traces: true
 
   # Where to find and where to put these traces for each message
-  where_to_find_reasoning: "reasoning_details.text"
+  # where_to_find_reasoning: "reasoning_details.text"
   output_reasoning_field_name: "thinking"
 
   # Whether to add the system prompts for each message

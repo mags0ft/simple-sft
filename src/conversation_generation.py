@@ -2,11 +2,12 @@
 Handles the main secret sauce: The conversation generation.
 """
 
+from copy import deepcopy
 from random import random
-from uuid import uuid4
 
 from config_reader import config
 from llm_interface import (
+    clean_response,
     get_reasoning,
     get_tool_calls,
     simple_in_out,
@@ -16,6 +17,8 @@ from llm_interface import (
 )
 from prompts import (
     FOLLOWUP_QUESTION_GENERATION_PROMPT,
+    INITIAL_MESSAGE_PROMPT,
+    CreateSpecialPrompts,
     concatenate_prompts,
     InjectedSpecialPrompts,
 )
@@ -30,7 +33,35 @@ class RepetitionError(Exception):
     """
 
 
+def generate_initial_question(
+    category: str, language: str, special_category: str | None = None
+) -> str:
+    """
+    Generates an initial question for the conversation based on the category and language.
+    """
+
+    if not special_category or special_category == "none":
+        return simple_in_out(INITIAL_MESSAGE_PROMPT % (category, language))
+
+    c = CreateSpecialPrompts()
+
+    map_ = {
+        "prompt_injection": c.prompt_injection_prompt,
+        "hallucination": c.get_hallucination_prompt(),
+        "nonsense": c.nonsense_prompt,
+    }
+
+    if special_category not in map_:
+        raise ValueError(
+            f"Invalid special category {special_category} for initial "
+            "question generation."
+        )
+
+    return clean_response(simple_in_out(map_[special_category] % (category, language)))
+
+
 def generate_conversation(
+    id_: str,
     category: str,
     system_prompt: str,
     special_category: str,
@@ -52,7 +83,7 @@ def generate_conversation(
     assert not config["output"]["add_system_prompts"] or system_prompt.strip() != ""
 
     conversation: ConversationType = {
-        "id": str(uuid4())[:8],
+        "id": id_,
         "messages": [],
         "tools": tools,
         "category": category,
@@ -83,14 +114,16 @@ def generate_conversation(
 
         for _ in range(config["conversation"]["max_consecutive_tool_calls"]):
             assistant_message, reasoning, tool_calls = generate_assistant_response(
-                conversation, language
+                conversation, config["prompting"].get("backstage", "").strip(), language
             )
+
             logger.debug(
                 "Conversation %s: assistant replied (turn=%d) tool_calls=%d",
                 conversation["id"],
                 turns,
                 len(tool_calls),
             )
+
             conversation["messages"].append(
                 {
                     "role": "assistant",
@@ -110,10 +143,8 @@ def generate_conversation(
                 if tool_call["function"]["name"] not in [
                     tool["function"]["name"] for tool in conversation["tools"]
                 ]:
-                    raise ValueError(
-                        f'Model called non-existing tool \
-"{tool_call["function"]["name"]}" in the scope of this conversation.'
-                    )
+                    raise ValueError(f'Model called non-existing tool \
+"{tool_call["function"]["name"]}" in the scope of this conversation.')
 
                 conversation["messages"].append(
                     {
@@ -131,10 +162,9 @@ def generate_conversation(
                     tool_call["function"]["name"],
                 )
         else:
-            raise RepetitionError(
-                "Model called tools too often in a row (configure in \
-conversation.max_consecutive_tool_calls) without letting the user talk."
-            )
+            raise RepetitionError("Model called tools too often in a row (configure in \
+conversation.max_consecutive_tool_calls) without letting the user talk. Are \
+you trying to build an agentic loop? Increase max_consecutive_tool_calls.")
 
         turns += 1
 
@@ -173,18 +203,24 @@ def generate_user_message(
             + "\n\n"
         )
 
-    return simple_in_out(
-        FOLLOWUP_QUESTION_GENERATION_PROMPT % (category, constructed_summary, language)
+    return clean_response(
+        simple_in_out(
+            FOLLOWUP_QUESTION_GENERATION_PROMPT
+            % (category, constructed_summary, language)
+        )
     )
 
 
 def generate_assistant_response(
-    conversation: ConversationType,
+    conversation_ref: ConversationType,
+    backstage_instruction: str,
     language: str,
 ) -> tuple[str, str, list[ToolCallType]]:
     """
     Generates the response of the assistant.
     """
+
+    conversation = deepcopy(conversation_ref)
 
     def inject_special_prompt_into_system_prompt(
         messages: list[MessagesType],
@@ -224,7 +260,10 @@ def generate_assistant_response(
     response = completion_wrapper(
         **chat_config,
         messages=inject_special_prompt_into_system_prompt(
-            conversation["messages"], conversation["specials"], language
+            conversation["messages"],
+            conversation["specials"],
+            backstage_instruction,
+            language=language,
         ),
         tools=conversation["tools"],
     )
