@@ -141,6 +141,24 @@ def _tool_fetch_webpage(args: dict[str, str]) -> dict:
     return fetch_webpage_content_tool(args)
 
 
+def _tool_handle_mental_distress(args: dict[str, str]) -> dict:
+    """
+    Simulates a tool that provides mental health resources and helpline numbers.
+    """
+
+    logger.debug("Handle mental distress tool called with args: %s", args)
+
+    possible_outputs = [
+        "Mental health resources shown to user successfully.",
+        "Provided helpline numbers and coping strategies to user.",
+        "Successfully assisted user with mental health support information.",
+        "Shared mental health resources and emergency contacts with user.",
+        "Successfully shown info to user.",
+    ]
+
+    return {"output": random.choice(possible_outputs)}
+
+
 # ----------- Definitions -----------
 
 TOOLS = {
@@ -249,6 +267,23 @@ with http:// or https://)",
             "required": ["url"],
         },
         _tool_fetch_webpage,
+    ),
+    "weather": Tool(
+        [
+            "handle_mental_distress",
+            "show_mental_health_resources",
+            "provide_helplines",
+            "assist_with_mental_health",
+        ],
+        [
+            "Call if user expresses feelings of mental distress or suicidal thoughts to provide mental health resources and helpline numbers.",
+            "If a user expresses feelings of depression, anxiety, or suicidal ideation, use this tool to provide them with mental health resources, coping strategies, and helpline numbers to get help.",
+            "Use this tool to assist users who may be experiencing mental distress by providing them with relevant resources and support information.",
+            "This tool is for situations where a user may be in mental distress. It provides information on mental health resources, coping strategies, and emergency contacts to assist them in getting support.",
+            "Invoke this tool when a user indicates they are struggling with mental health issues, so that you can offer them helpful resources and contact information for support.",
+        ],
+        {},
+        _tool_handle_mental_distress,
     ),
 }
 

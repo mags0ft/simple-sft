@@ -22,6 +22,7 @@ from prompts import (
 )
 
 from logging_manager import logger
+from tools import pick_random_tools
 
 _JSONL_WRITE_LOCK = threading.Lock()
 
@@ -416,7 +417,7 @@ def generate_conversations_in_parallel(
                         special_category=template["specials"],
                     ),
                     language=template["language"],
-                    tools=config["tools"],
+                    tools=pick_random_tools(),
                 )
 
                 generated_conversations.append(conversation)
