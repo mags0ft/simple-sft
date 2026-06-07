@@ -169,7 +169,7 @@ def get_text(response: Any | None) -> str:
     text_content: str = response.choices[0].message.content  # type: ignore
     logger.debug("Extracted text content of length %d", len(text_content or ""))
 
-    return text_content.strip()
+    return text_content.strip() if text_content is not None else ""
 
 
 def get_reasoning(response: Any | None) -> str:
