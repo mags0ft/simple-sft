@@ -200,6 +200,16 @@ def _tool_handle_mental_distress(args: dict[str, str]) -> dict:
     }}
 
 
+def _tool_get_datetime() -> dict:
+    """
+    Returns the current date and time in ISO format.
+    """
+
+    logger.debug("Get datetime tool called.")
+
+    return {"datetime": datetime.datetime.now().isoformat()}
+
+
 # ----------- Definitions -----------
 
 TOOLS = {
@@ -326,6 +336,23 @@ with http:// or https://)",
         {},
         _tool_handle_mental_distress,
     ),
+    "get_datetime": Tool(
+        [
+            "get_datetime",
+            "current_datetime",
+            "datetime_info",
+            "time_and_date",
+        ],
+        [
+            "Get the current date and time information",
+            "Retrieve the current date and time in ISO format",
+            "Provide the current date and time details",
+            "Fetch the current date and time information",
+            "Get the current date and time in a structured format",
+        ],
+        {},
+        _tool_get_datetime,
+    )
 }
 
 
