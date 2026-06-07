@@ -87,7 +87,7 @@ def generate_conversation(
         special_category,
     )
     assert category.strip() != ""
-    assert not config["output"]["add_system_prompts"] or system_prompt.strip() != ""
+    # assert not config["output"]["add_system_prompts"] or system_prompt.strip() != ""
 
     conversation: ConversationType = {
         "id": id_,
@@ -97,10 +97,9 @@ def generate_conversation(
         "specials": special_category if special_category else "none",
     }
 
-    if config["output"]["add_system_prompts"]:
-        conversation["messages"].append({"role": "system", "content": system_prompt})
-        logger.debug("Added system prompt to conversation %s", conversation["id"])
-
+    # we need a system prompt as a dummy even if the user doesn't want to have
+    # system prompts in the final dataset
+    conversation["messages"].append({"role": "system", "content": system_prompt})
     turns = 0
 
     while turns < config["conversation"]["max_length"]:
@@ -317,5 +316,8 @@ def post_processing(conversation: ConversationType) -> ConversationType:
             temp = message["thinking"]
             del message["thinking"]
             message[config["output"]["output_reasoning_field_name"]] = temp
+
+    if not config["output"]["add_system_prompts"] and conversation["messages"][0]["role"] == "system":
+        conversation["messages"] = conversation["messages"][1:]
 
     return conversation

@@ -248,6 +248,7 @@ def generate_system_prompts_in_parallel(output_file_path: str) -> None:
                 theme,
                 format_,
                 min(left_to_generate, config["batch_size"]),
+                config["prompting"]["system_prompt_extra_info"]
             )
             input_prompt = (
                 base_prompt
@@ -313,12 +314,14 @@ def generate_templates(
     system_prompts_path: str,
     distribution: list[Category],
     config: dict,
-) -> None:
+) -> int:
     """
     Generates templates for later generation using parallel workers; for now,
     this only means generating the conditions (category, language, system
     prompt) for each conversation to be generated, and storing them in the
     state file. This makes resuming later easier.
+
+    Returns the actual number of templates generated.
     """
 
     with open(system_prompts_path, "r") as f:
@@ -338,16 +341,18 @@ def generate_templates(
 
         for _ in range(len(leftover_distribution)):
             chosen_category = leftover_distribution[category_ptr]
+            has_system_prompt = random.random() < config["prompting"]["system_prompt_probability"]
 
             try:
                 conditions = {
                     "id": str(uuid.uuid4())[:8],
                     "category": chosen_category.name,
                     "language": next_lang(leftover_distribution[category_ptr]),
-                    "system_prompt": system_prompts[system_prompt_ptr],
+                    "system_prompt": system_prompts[system_prompt_ptr] if has_system_prompt else "",
                     "specials": get_specials(config["special_categories"]),
                 }
-                system_prompt_ptr = (system_prompt_ptr + 1) % len(system_prompts)
+                if has_system_prompt:
+                    system_prompt_ptr = (system_prompt_ptr + 1) % len(system_prompts)
 
                 return conditions
             except NoMoreLanguagesError:
@@ -371,6 +376,8 @@ def generate_templates(
     )
 
     update_state_file(state_path, {"templates": templates})
+
+    return len(templates)
 
 
 def generate_conversations_in_parallel(
@@ -572,7 +579,7 @@ def main_flow(
     run_name: str = "",
     new_run: bool = True,
     resume_run: bool = False,
-    generate_system_prompts_only: bool = False,
+    generate_templates_only: bool = False,
 ):
     """
     Main flow of the program. Needs to handle a lot: Orchestrating the topic,
@@ -582,8 +589,8 @@ def main_flow(
 
     assert not (new_run and resume_run)
     assert (
-        generate_system_prompts_only and not (resume_run or new_run)
-    ) or not generate_system_prompts_only
+        generate_templates_only and not (resume_run or new_run)
+    ) or not generate_templates_only
 
     if not run_name:
         run_name = config["run_name"]
@@ -605,14 +612,7 @@ def main_flow(
         conversations_path = os.path.join("data", run_name, f"conversations.jsonl")
         state_path = os.path.join("data", run_name, f"state.json")
 
-    if new_run:
-        distribution = distribute_categories(n_rows, config["categories"])
-
-        generate_system_prompts_in_parallel(system_prompts_path)
-        generate_templates(state_path, system_prompts_path, distribution, config)
-        generate_conversations_in_parallel(state_path, conversations_path, config)
-
-    elif resume_run:
+    if resume_run:
         state = read_state_file(state_path)
 
         with open(conversations_path, "r") as f:
@@ -626,6 +626,17 @@ def main_flow(
         )
 
         generate_conversations_in_parallel(state_path, conversations_path, config)
+        return
 
-    elif generate_system_prompts_only:
-        generate_system_prompts_in_parallel(system_prompts_path)
+    distribution = distribute_categories(n_rows, config["categories"])
+
+    generate_system_prompts_in_parallel(system_prompts_path)
+    n_templates = generate_templates(state_path, system_prompts_path, distribution, config)
+
+    if not generate_templates_only:
+        generate_conversations_in_parallel(state_path, conversations_path, config)
+    else:
+        logger.info(
+            f"Templates generated (n={n_templates}), you can resume this run "
+            "later by starting simple-sft with --resume-run and the same run "
+            f"name: {run_name}")

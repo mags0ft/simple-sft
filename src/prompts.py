@@ -3,7 +3,6 @@ Prompts and generation functions used to interact with the (remote) LLM.
 """
 
 import random
-from config_reader import config
 from logging_manager import logger
 
 SYSTEM_PROMPT_GENERATION_PROMPT = """
@@ -18,6 +17,8 @@ self-contained system prompt. Do not give them a title, ID, name or preamble.
 conversation. It may include additional info, guidelines, rules etc., but \
 does not represent a user directly talking to the assistant. The actual \
 request of the user is out-of-scope for your task.
+
+%s
 """.strip()
 
 SYSTEM_PROMPT_GENERATION_ADDITION = """

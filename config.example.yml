@@ -133,7 +133,7 @@ api_query:
 
   # If using services like OpenRouter, you may specify routing rules or
   # provider preferences in the extra_body field. Enter valid JSON as a string.
-  extra_body: ''
+  extra_body: ""
 
   # Not nearly enough providers have stable support for the Responses API, even
   # though it's clearly superior to the Chat Completions API -- unfortunately,
@@ -190,6 +190,9 @@ prompting:
     - "list of markdown-formatted rules"
     - "comprehensive guardrails"
   
+  # Extra instructions that can be given to the model generating the system prompts.
+  system_prompt_extra_info: ""
+
   # You can pass extra backstage instructions to the model generating the
   # assistant responses; this will cause it to behave differently, but will not
   # be included in the final dataset -- this is useful for e.g. telling the how

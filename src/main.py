@@ -36,10 +36,10 @@ def main() -> None:
         help="Flag to indicate resuming an existing run.",
     )
     parser.add_argument(
-        "--generate-system-prompts-only",
+        "--generate-templates-only",
         action="store_true",
         default=False,
-        help="Flag to indicate generating system prompts only.",
+        help="Flag to indicate generating templates only. Will not actually generate the dataset, just the templates.",
     )
 
     args = parser.parse_args()
@@ -48,7 +48,7 @@ def main() -> None:
         logger.error("Cannot specify both --new-run and --resume-run.")
         return
 
-    if not args.new_run and not args.resume_run:
+    if not args.new_run and not args.resume_run and not args.generate_templates_only:
         logger.error("Did you mean to start a new run? Use --new-run.\nNothing to do. Exiting.")
         return
 
@@ -60,8 +60,10 @@ def main() -> None:
         run_name=args.run_name,
         new_run=args.new_run,
         resume_run=args.resume_run,
-        generate_system_prompts_only=args.generate_system_prompts_only,
+        generate_templates_only=args.generate_templates_only,
     )
+
+    logger.info("Finished.")
 
 
 if __name__ == "__main__":

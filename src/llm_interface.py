@@ -1,6 +1,6 @@
 """
 Efficiently interfaces with cloud, remote or locally running LLMs by managing
-large amounts of tasks in parallel for a more efficient use of time.
+large amounts of tasks in parallel for a slightly better use of time.
 
 Because of no widely available support for batch processing across providers,
 requests are still handled individually. This may change in the future.
