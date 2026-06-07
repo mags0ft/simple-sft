@@ -596,9 +596,14 @@ def main_flow(
     assert isinstance(n_threads, int) and n_threads > 0
     assert isinstance(n_rows, int) and n_rows > 0
 
-    system_prompts_path, conversations_path, state_path = initialize_output_directory(
-        config["run_name"]
-    )
+    if not resume_run:
+        system_prompts_path, conversations_path, state_path = initialize_output_directory(
+            config["run_name"]
+        )
+    else:
+        system_prompts_path = os.path.join("data", run_name, f"system_prompts.jsonl")
+        conversations_path = os.path.join("data", run_name, f"conversations.jsonl")
+        state_path = os.path.join("data", run_name, f"state.json")
 
     if new_run:
         distribution = distribute_categories(n_rows, config["categories"])

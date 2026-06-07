@@ -343,10 +343,12 @@ def get_tool_response(name: str, args: str) -> str:
         logger.error("Tool call arguments were not valid JSON: %s", args)
         raise ValueError("Model did not return valid JSON for the tool call.")
 
-    if "arguments" in parsed_args:
-        parsed_args = parsed_args["arguments"]
-    elif "args" in parsed_args:
-        parsed_args = parsed_args["args"]
+    # some models just aren't that bright.
+    while "arguments" in parsed_args or "args" in parsed_args:
+        if "arguments" in parsed_args:
+            parsed_args = parsed_args["arguments"]
+        elif "args" in parsed_args:
+            parsed_args = parsed_args["args"]
 
     try:
         logger.debug("Calling tool '%s' with parsed args: %s", name, parsed_args)

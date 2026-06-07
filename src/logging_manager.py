@@ -5,6 +5,9 @@ Handles logging functionality.
 import logging
 
 
+__version__ = "0.1.0"
+
+
 def create_logger() -> logging.Logger:
     """
     Factory for a logger that is used across the project.
@@ -32,3 +35,5 @@ def create_logger() -> logging.Logger:
 
 
 logger = create_logger()
+
+logger.info(f"simple-sft {__version__}")

@@ -26,7 +26,7 @@ def main() -> None:
     parser.add_argument(
         "--new-run",
         action="store_true",
-        default=True,
+        default=False,
         help="Flag to indicate a new run.",
     )
     parser.add_argument(
@@ -46,6 +46,14 @@ def main() -> None:
 
     if args.new_run and args.resume_run:
         logger.error("Cannot specify both --new-run and --resume-run.")
+        return
+
+    if not args.new_run and not args.resume_run:
+        logger.error("Did you mean to start a new run? Use --new-run.\nNothing to do. Exiting.")
+        return
+
+    if args.resume_run and not args.run_name:
+        logger.error("Must specify --run-name when using --resume-run.")
         return
 
     main_flow(
