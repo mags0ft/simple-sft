@@ -126,6 +126,12 @@ def _tool_web_search(args: dict[str, str]) -> dict:
                 for result in search_results
             ]
 
+            # we don't really need that much more, the model will be able to
+            # generalize upon that later on anyways. our dataset is fine with
+            # just up to 6 results per search :)
+            if len(final_results) > 6:
+                final_results = final_results[:6]
+
             return {"results": final_results}
 
         except requests.RequestException as e:
@@ -336,6 +342,11 @@ def get_tool_response(name: str, args: str) -> str:
     except json.JSONDecodeError:
         logger.error("Tool call arguments were not valid JSON: %s", args)
         raise ValueError("Model did not return valid JSON for the tool call.")
+
+    if "arguments" in parsed_args:
+        parsed_args = parsed_args["arguments"]
+    elif "args" in parsed_args:
+        parsed_args = parsed_args["args"]
 
     try:
         logger.debug("Calling tool '%s' with parsed args: %s", name, parsed_args)
