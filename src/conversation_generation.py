@@ -34,14 +34,19 @@ class RepetitionError(Exception):
 
 
 def generate_initial_question(
-    category: str, language: str, special_category: str | None = None
+    category: str,
+    language: str,
+    backstage_user: str,
+    special_category: str | None = None,
 ) -> str:
     """
     Generates an initial question for the conversation based on the category and language.
     """
 
     if not special_category or special_category == "none":
-        return simple_in_out(INITIAL_MESSAGE_PROMPT % (category, language))
+        return simple_in_out(
+            INITIAL_MESSAGE_PROMPT % (category, language, backstage_user)
+        )
 
     c = CreateSpecialPrompts()
 
@@ -57,7 +62,9 @@ def generate_initial_question(
             "question generation."
         )
 
-    return clean_response(simple_in_out(map_[special_category] % (category, language)))
+    return clean_response(
+        simple_in_out(map_[special_category] % (category, language, backstage_user))
+    )
 
 
 def generate_conversation(
@@ -98,7 +105,12 @@ def generate_conversation(
 
     while turns < config["conversation"]["max_length"]:
         user_message = (
-            generate_user_message(conversation["messages"], category, language)
+            generate_user_message(
+                conversation["messages"],
+                category,
+                config["prompting"].get("backstage_user", "").strip(),
+                language,
+            )
             if turns > 0
             else initial_question
         )
@@ -182,7 +194,7 @@ you trying to build an agentic loop? Increase max_consecutive_tool_calls.")
 
 
 def generate_user_message(
-    messages: list[MessagesType], category: str, language: str
+    messages: list[MessagesType], category: str, backstage_user: str, language: str
 ) -> str:
     """
     Generates a follow-up request or message the user could send to the
@@ -210,7 +222,7 @@ def generate_user_message(
     return clean_response(
         simple_in_out(
             FOLLOWUP_QUESTION_GENERATION_PROMPT
-            % (category, constructed_summary, language)
+            % (category, constructed_summary, language, backstage_user)
         )
     )
 

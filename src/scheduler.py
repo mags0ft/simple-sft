@@ -414,6 +414,7 @@ def generate_conversations_in_parallel(
                     initial_question=generate_initial_question(
                         template["category"],
                         template["language"],
+                        config["prompting"].get("backstage_user", "").strip(),
                         special_category=template["specials"],
                     ),
                     language=template["language"],

@@ -45,7 +45,11 @@ user actually sees, but has been done to be more concise. Just ignore that.
 Generate a reasonable follow-up request/message from the viewpoint of the user.
 
 Only answer with this message, nothing else. Do not prepend "User:" to your \
-message. The message should be in %s.
+message.
+
+The message should be in %s.
+
+%s
 """.strip()
 
 
@@ -117,6 +121,8 @@ personal details, specific requests, typos, formatting requests and different \
 styles. Make your initial request about this topic: %s. Write it in %s.
 
 {PROMPT_ONLY_REQUEST}
+
+%s
 """.strip()
 
 
@@ -140,6 +146,8 @@ Some examples for realistic-sounding things that do not exist:
 Relate it to this topic: %s. Write it in %s.
 
 {PROMPT_ONLY_REQUEST}
+
+%s
 """.strip()
 
     nonsense_prompt = f"""
@@ -153,6 +161,8 @@ is required to actively push back on your nonsense prompt.
 Relate it to this topic: %s. Write it in %s.
 
 {PROMPT_ONLY_REQUEST}
+
+%s
 """.strip()
 
     prompt_injection_prompt = f"""
@@ -180,6 +190,8 @@ embedded into them. Do not make it similar to the example.
 Relate it to this topic: %s. Write it in %s.
 
 {PROMPT_ONLY_REQUEST}
+
+%s
 """.strip()
 
     def get_hallucination_prompt(self) -> str:

@@ -190,11 +190,14 @@ prompting:
     - "list of markdown-formatted rules"
     - "comprehensive guardrails"
   
-  # Instructions to give to the generating model "from the off", which can be
-  # used to steer its generations but will not be included in the final
-  # dataset.
-  #
-  # backstage: |
+  # You can pass extra backstage instructions to the model generating the
+  # assistant responses; this will cause it to behave differently, but will not
+  # be included in the final dataset -- this is useful for e.g. telling the how
+  # to behave, which is useful for fine-tuning.
+  backstage: ""
+
+  # The same also goes for user messages:
+  backstage_user: ""
 
 output:
   # Whether to include reasoning traces in the final dataset
