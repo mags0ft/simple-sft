@@ -133,10 +133,14 @@ def generate_conversation(
                 }
             )
 
+            if not reasoning:
+                del conversation["messages"][-1]["thinking"]
+
             if not tool_calls:
                 logger.debug(
                     "Conversation %s: no tool calls, continuing", conversation["id"]
                 )
+                del conversation["messages"][-1]["tool_calls"]
                 break
 
             for tool_call in tool_calls:

@@ -39,6 +39,9 @@ BEGIN OF CHAT HISTORY
 
 END OF CHAT HISTORY
 
+Some messages may have been truncated; this is intentional and not what the \
+user actually sees, but has been done to be more concise. Just ignore that.
+
 Generate a reasonable follow-up request/message from the viewpoint of the user.
 
 Only answer with this message, nothing else. Do not prepend "User:" to your \

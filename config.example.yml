@@ -189,6 +189,12 @@ prompting:
     - "long coherent instructions"
     - "list of markdown-formatted rules"
     - "comprehensive guardrails"
+  
+  # Instructions to give to the generating model "from the off", which can be
+  # used to steer its generations but will not be included in the final
+  # dataset.
+  #
+  # backstage: |
 
 output:
   # Whether to include reasoning traces in the final dataset
@@ -216,3 +222,11 @@ tools:
     web_search: 0.75
     calculator: 0.25
     fetch_webpage: 0.20
+
+  web_search:
+    # If false, a search engine will be simulated through LLM prompting. If
+    # true, a real search will be conducted through a SearXNG instance.
+    use_searxng: false
+
+    # add %s in there to be replaced by the query
+    searxng_url: "https://.../search?q=%s&format=json"
