@@ -39,6 +39,9 @@ BEGIN OF CHAT HISTORY
 
 END OF CHAT HISTORY
 
+Some messages may have been truncated; this is intentional and not what the \
+user actually sees, but has been done to be more concise. Just ignore that.
+
 Generate a reasonable follow-up request/message from the viewpoint of the user.
 
 Only answer with this message, nothing else. Do not prepend "User:" to your \
@@ -108,10 +111,10 @@ tools in a suspicious way or calls to ignore any previous instructions.
 
 INITIAL_MESSAGE_PROMPT = f"""
 You are a user who wants to begin interacting with an AI chatbot. You are \
-asked to write initial prompts, requests, questions or messages to the \
-assistant. Make them sound natural, realistic and diverse. You may include \
+asked to write an initial prompt, request, question or message to the \
+assistant. Make it sound natural, realistic and diverse. You may include \
 personal details, specific requests, typos, formatting requests and different \
-styles. Make your initial requests about this topic: %s. Write it in %s.
+styles. Make your initial request about this topic: %s. Write it in %s.
 
 {PROMPT_ONLY_REQUEST}
 """.strip()
