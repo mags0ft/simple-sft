@@ -57,32 +57,32 @@ categories:
   #   rows not allocated to other categories with percentages or absolute
   #   values)
 
-  "Generic conversations": 0.1500
-  "Maths": 0.1500
-  "Physics": 0.1000
-  "Chemistry": 0.0500
-  "Biology": 0.0500
-  "Psychology": 0.0100
-  "Cooking": 0.0075
-  "Baking": 0.0075
-  "Shopping": 0.0050
-  "Law": 0.0250
-  "Health": 400
+  "Generic conversations":  0.1500
+  "Maths":                  0.1500
+  "Physics":                0.1000
+  "Chemistry":              0.0500
+  "Biology":                0.0500
+  "Psychology":             0.0100
+  "Cooking":                0.0075
+  "Baking":                 0.0075
+  "Shopping":               0.0050
+  "Law":                    0.0250
+  "Health":                 400
+  "Programming":            -1
+  "Translation tasks":      -1
+  "Prose & writing tasks":  -1
+  "School":                 -1
   "Situations of mental distress and suicide prevention": 250
-  "Programming": -1
-  "Translation tasks": -1
-  "Prose & writing tasks": -1
-  "School": -1
 
 languages:
   # The languages the dataset should be in; only percentages are supported.
-  "English": 0.6000
-  "Chinese": 0.1500
-  "Hindi": 0.1000
-  "Spanish": 0.0500
-  "French": 0.0500
-  "Japanese": 0.0250
-  "German": 0.0250
+  "English":                0.6000
+  "Chinese":                0.1500
+  "Hindi":                  0.1000
+  "Spanish":                0.0500
+  "French":                 0.0500
+  "Japanese":               0.0250
+  "German":                 0.0250
 
 special_categories:
   # These are extras which you can activate to further improve dataset quality
@@ -218,10 +218,11 @@ tools:
   available:
     # The tools to make available to the assistant when simulating an
     # interaction with a user. Set to zero to make the tool always unavailable.
-    weather: 0.50
-    web_search: 0.75
-    calculator: 0.25
-    fetch_webpage: 0.20
+    weather:                0.85
+    web_search:             0.85
+    calculator:             0.75
+    fetch_webpage:          0.85
+    handle_mental_distress: 0.9
 
   web_search:
     # If false, a search engine will be simulated through LLM prompting. If

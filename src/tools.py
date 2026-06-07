@@ -33,9 +33,7 @@ class Tool:
     schema = {}
     callback = lambda _: 0
 
-    def __init__(
-        self, possible_names, possible_descriptions, schema, callback
-    ):
+    def __init__(self, possible_names, possible_descriptions, schema, callback):
         self.possible_names = possible_names
         self.possible_descriptions = possible_descriptions
         self.schema = schema
@@ -105,32 +103,27 @@ def _tool_web_search(args: dict[str, str]) -> dict:
     Simulates the web search tool.
     """
 
-    logger.debug(
-        "Web search tool called with query: %s", args.get("query", "")
-    )
+    logger.debug("Web search tool called with query: %s", args.get("query", ""))
 
     if config["tools"]["web_search"]["use_searxng"]:
         searxng_url = config["tools"]["web_search"]["searxng_url"] % args.get(
             "query", ""
         )
-        logger.debug(
-            "Performing real web search with SearXNG at URL: %s", searxng_url
-        )
+        logger.debug("Performing real web search with SearXNG at URL: %s", searxng_url)
 
         try:
             response = requests.get(searxng_url, timeout=10)
             response.raise_for_status()
             search_results = response.json().get("results", [])
-            logger.debug(
-                "Received %d search results from SearXNG", len(search_results)
-            )
+            logger.debug("Received %d search results from SearXNG", len(search_results))
 
             final_results = [
                 {
                     "title": result.get("title", ""),
                     "summary": result.get("content", ""),
                     "url": result.get("url", ""),
-                } for result in search_results
+                }
+                for result in search_results
             ]
 
             return {"results": final_results}
@@ -138,22 +131,16 @@ def _tool_web_search(args: dict[str, str]) -> dict:
         except requests.RequestException as e:
             logger.error("Error during SearXNG web search: %s", e)
 
-            raise ToolError(
-                "Web search tool failed to perform the search: ", e
-            )
+            raise ToolError("Web search tool failed to perform the search: ", e)
 
     for attempt in range(3):
         try:
             result = json.loads(
                 clean_response(
-                    simple_in_out(
-                        WEB_SEARCH_SIMULATION_PROMPT % args.get("query", "")
-                    )
+                    simple_in_out(WEB_SEARCH_SIMULATION_PROMPT % args.get("query", ""))
                 )
             )
-            logger.debug(
-                "Web search tool succeeded on attempt %d", attempt + 1
-            )
+            logger.debug("Web search tool succeeded on attempt %d", attempt + 1)
             return result
         except json.JSONDecodeError:
             logger.warning(
@@ -162,12 +149,8 @@ def _tool_web_search(args: dict[str, str]) -> dict:
             )
             continue
 
-    logger.error(
-        "Web search tool failed to return valid JSON after 3 attempts"
-    )
-    raise ValueError(
-        "Model did not return valid JSON for the web search tool."
-    )
+    logger.error("Web search tool failed to return valid JSON after 3 attempts")
+    raise ValueError("Model did not return valid JSON for the web search tool.")
 
 
 def _tool_calculator(args: dict[str, str]) -> dict:
@@ -317,7 +300,7 @@ with http:// or https://)",
         },
         _tool_fetch_webpage,
     ),
-    "weather": Tool(
+    "handle_mental_distress": Tool(
         [
             "handle_mental_distress",
             "show_mental_health_resources",
@@ -349,13 +332,9 @@ def get_tool_response(name: str, args: str) -> str:
         raise ValueError("Model did not return valid JSON for the tool call.")
 
     try:
-        logger.debug(
-            "Calling tool '%s' with parsed args: %s", name, parsed_args
-        )
+        logger.debug("Calling tool '%s' with parsed args: %s", name, parsed_args)
         res = TOOLS[name].callback(parsed_args)
-        logger.debug(
-            "Tool '%s' returned result type %s", name, type(res).__name__
-        )
+        logger.debug("Tool '%s' returned result type %s", name, type(res).__name__)
         return json.dumps(res)
     except (KeyError, ValueError) as e:
         logger.exception("Tool '%s' failed: %s", name, e)
@@ -369,12 +348,8 @@ def generate_random_tool_selection(tools: list[str]) -> list[TopLevelToolType]:
     expected for OpenAI API tool definitions.
     """
 
-    selection = [
-        TOOLS[tool].generate_variation() for tool in tools if tool in TOOLS
-    ]
-    logger.debug(
-        "Generated %d tool variations for tools: %s", len(selection), tools
-    )
+    selection = [TOOLS[tool].generate_variation() for tool in tools if tool in TOOLS]
+    logger.debug("Generated %d tool variations for tools: %s", len(selection), tools)
 
     return selection
 
