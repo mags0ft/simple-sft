@@ -22,7 +22,12 @@ from prompts import (
     concatenate_prompts,
     InjectedSpecialPrompts,
 )
-from custom_types import ConversationType, MessagesType, ToolCallType, TopLevelToolType
+from custom_types import (
+    ConversationType,
+    MessagesType,
+    ToolCallType,
+    TopLevelToolType,
+)
 from tools import get_tool_response
 from logging_manager import logger
 
@@ -63,7 +68,9 @@ def generate_initial_question(
         )
 
     return clean_response(
-        simple_in_out(map_[special_category] % (category, language, backstage_user))
+        simple_in_out(
+            map_[special_category] % (category, language, backstage_user)
+        )
     )
 
 
@@ -99,7 +106,9 @@ def generate_conversation(
 
     # we need a system prompt as a dummy even if the user doesn't want to have
     # system prompts in the final dataset
-    conversation["messages"].append({"role": "system", "content": system_prompt})
+    conversation["messages"].append(
+        {"role": "system", "content": system_prompt}
+    )
     turns = 0
 
     while turns < config["conversation"]["max_length"]:
@@ -113,7 +122,9 @@ def generate_conversation(
             if turns > 0
             else initial_question
         )
-        conversation["messages"].append({"role": "user", "content": user_message})
+        conversation["messages"].append(
+            {"role": "user", "content": user_message}
+        )
         logger.debug(
             "Conversation %s: user message (turn=%d) len=%d",
             conversation["id"],
@@ -124,8 +135,12 @@ def generate_conversation(
         # Handle assistant responses with tool calls:
 
         for _ in range(config["conversation"]["max_consecutive_tool_calls"]):
-            assistant_message, reasoning, tool_calls = generate_assistant_response(
-                conversation, config["prompting"].get("backstage", "").strip(), language
+            assistant_message, reasoning, tool_calls = (
+                generate_assistant_response(
+                    conversation,
+                    config["prompting"].get("backstage", "").strip(),
+                    language,
+                )
             )
 
             logger.debug(
@@ -149,10 +164,11 @@ def generate_conversation(
 
             if not tool_calls:
                 logger.debug(
-                    "Conversation %s: no tool calls, continuing", conversation["id"]
+                    "Conversation %s: no tool calls, continuing",
+                    conversation["id"],
                 )
                 del conversation["messages"][-1]["tool_calls"]
-                
+
                 break
 
             for tool_call in tool_calls:
@@ -178,9 +194,11 @@ def generate_conversation(
                     tool_call["function"]["name"],
                 )
         else:
-            raise RepetitionError("Model called tools too often in a row (configure in \
+            raise RepetitionError(
+                "Model called tools too often in a row (configure in \
 conversation.max_consecutive_tool_calls) without letting the user talk. Are \
-you trying to build an agentic loop? Increase max_consecutive_tool_calls.")
+you trying to build an agentic loop? Increase max_consecutive_tool_calls."
+            )
 
         turns += 1
 
@@ -194,7 +212,10 @@ you trying to build an agentic loop? Increase max_consecutive_tool_calls.")
 
 
 def generate_user_message(
-    messages: list[MessagesType], category: str, backstage_user: str, language: str
+    messages: list[MessagesType],
+    category: str,
+    backstage_user: str,
+    language: str,
 ) -> str:
     """
     Generates a follow-up request or message the user could send to the
@@ -306,7 +327,10 @@ def post_processing(conversation: ConversationType) -> ConversationType:
     """
 
     for message in conversation["messages"]:
-        if not config["output"]["include_reasoning_traces"] and "thinking" in message:
+        if (
+            not config["output"]["include_reasoning_traces"]
+            and "thinking" in message
+        ):
             del message["thinking"]
 
         elif (
@@ -317,7 +341,10 @@ def post_processing(conversation: ConversationType) -> ConversationType:
             del message["thinking"]
             message[config["output"]["output_reasoning_field_name"]] = temp
 
-    if not config["output"]["add_system_prompts"] and conversation["messages"][0]["role"] == "system":
+    if conversation["messages"][0]["role"] == "system" and (
+        conversation["messages"][0]["content"].strip() == ""
+        or not config["output"]["add_system_prompts"]
+    ):
         conversation["messages"] = conversation["messages"][1:]
 
     return conversation

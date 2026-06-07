@@ -13,8 +13,27 @@ def fetch_webpage_html(url: str) -> str:
     """
 
     logger.debug("Fetching HTML for URL: %s", url)
-    resp = requests.get(url)
+    resp = requests.get(url, headers={
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "accept-language": "en-US,en;q=0.7",
+        "cache-control": "no-cache",
+        "pragma": "no-cache",
+        "priority": "u=0, i",
+        "referer": "https://search.brave.com/",
+        "sec-ch-ua": '"Brave";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Linux"',
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "cross-site",
+        "sec-fetch-user": "?1",
+        "sec-gpc": "1",
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    })
     resp.raise_for_status()
+    
     return resp.text
 
 
@@ -54,10 +73,10 @@ def fetch_webpage_content_tool(args: dict[str, str]) -> dict:
             "Fetched and extracted text length=%d for url=%s", len(text or ""), url
         )
 
-        # limit text length to 2048 characters to avoid overwhelming the model
+        # limit text length to 4096 characters to avoid overwhelming the model
         # with too much content
-        if len(text) > 2048:
-            text = text[:2048] + "... [truncated]"
+        if len(text) > 4096:
+            text = text[:4096] + "... [truncated]"
 
         return {"text": text}
     except requests.RequestException as e:
