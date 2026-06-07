@@ -1,0 +1,298 @@
+# Configuration for simple-sft
+
+# How many individual conversations to generate -- will likely be overshot
+# because seed data generated in batches will not exactly fit the desired
+# distribution, but simple-sft will try to get as close as possible to this
+# number.
+rows: 10
+
+# The model to use for generating the conversations. Make sure to use a model
+# with good reasoning capabilities and tool use if you want to generate
+# high-quality conversations. The model specified here will also be the one
+# whose capabilities are reflected in the generated conversations.
+model: "deepseek/deepseek-v4-flash"
+
+# Where to store the generated conversations.
+run_name: "jacob_v2"
+
+# How many threads to use for parallel generation of conversations.
+n_threads: 8
+
+# When requesting cloud LLMs, in order to save input tokens, some data is
+# generated in batches. This parameter controls the size of said batches. The
+# smaller this parameter, the less efficient the generation becomes, however
+# the closer the actual resulting number of rows is to the desired amount.
+batch_size: 1
+
+# When to write the generated conversations to the output file. Setting this to
+# a lower number means that conversations will be written more often, which is
+# safer in case of crashes. Before writing, they are kept in an in-memory
+# buffer.
+write_every_n_conversations: 1
+
+conversation:
+  min_length: 1     # How many turns (prompt + assistant resposnse) at least
+  max_length: 24    # Maximum number of turns
+
+  # When generating a conversation, at least one turn is created. For each
+  # subsequent turn, randomness decides whether to extend the conversation,
+  # up to the limit defined by max_length. The probability is defined below.
+  extend_prob: 0.7000  # 0.75 = 75% chance per turn to add yet another turn
+
+  # Maximum amount a model may call tools and return to thinking/writing in a
+  # row without letting the user intervene.
+  max_consecutive_tool_calls: 8
+
+categories:
+  # You may add any conversation topic here -- it'll be injected into the
+  # generation prompt for the initial conversation starter, so make sure to
+  # make it self-explanatory.
+
+  # This is a dictionary - each category has a float assigned to it to control
+  # how much this category comes up in the final dataset.
+  # - value between 0 and 1: percentage (0.2 = 20% of the dataset is comprised
+  #   of this category)
+  # - value > 1: exact number (how much)
+  # - value = -1: go figure it out for me (even distribution of the remaining
+  #   rows not allocated to other categories with percentages or absolute
+  #   values)
+
+  "Conversations that require recent web search": 1.0000
+
+  # "Generic conversations":    0.1500
+  # "Everyday life situations": 0.1500
+  # "Translation tasks":        0.1500
+  # "Prose & writing tasks":    0.0750
+  # "Health & Sports":          0.0750
+
+  # "Maths":                    0.0500
+  # "Physics":                  0.0500
+  # "Chemistry":                0.0500
+  # "Biology":                  0.0500
+  # "Law":                      0.0500
+  # "Programming":              0.0500
+
+  # "Cooking":                  0.0250
+  # "Baking":                   0.0250
+
+  # "Situations of mental distress and suicide prevention": 0.0500
+
+
+languages:
+  # The languages the dataset should be in; only percentages are supported.
+  "German, Leichte Sprache": 1.0000
+
+special_categories:
+  # These are extras which you can activate to further improve dataset quality
+  # and versatility. Per row, only one of these special categories may apply at
+  # maximum, with each category occuring in combination of one of the
+  # categories defined above in the "categories" dictionary. The "percentage"
+  # parameter decides how much of the total rows have the special category
+  # randomly applied.
+
+  pushback_on_nonsense_questions:
+    # Will make the model in the chat push back on nonsensical questions. Works
+    # by generating initial prompts that do not make any sense and telling the
+    # model used for synthetic data generation to point out the question does
+    # not make any sense.
+    activate: true
+    percentage: 0.0250
+    # = 2.5% of the total rows have this special category applied to them.
+  
+  prompt_injection_refusals:
+    # Will generate samples where the "user" role tries to perform prompt
+    # injection attacks on the model and makes the model refuse to follow these
+    # attacks.
+    activate: true
+    percentage: 0.0250
+  
+  hallucination_rejections:
+    # On questions about topics or things that do not exist, the model will
+    # refuse to answer by saying that it simply doesn't "know". The questions
+    # about things that do not exist are generated.
+    activate: true
+    percentage: 0.0500
+
+api_query:
+  # Reasoning effort to use in chats and prompt generation
+  reasoning_effort: none
+
+  # The maximum amount of response tokens per response
+  max_tokens: 8192
+
+  # The temperature to use in the actual chats in the final dataset
+  chat_temperature: 1.0
+
+  # The temperature to use for generating prompts or questions
+  meta_temperature: 1.0
+
+  # Amount of re-tries before giving up on a request
+  max_retries: 4
+
+  # If using services like OpenRouter, you may specify routing rules or
+  # provider preferences in the extra_body field. Enter valid JSON as a string.
+  extra_body: ''
+
+  # Not nearly enough providers have stable support for the Responses API, even
+  # though it's clearly superior to the Chat Completions API -- unfortunately,
+  # due to this, simple-sft still relies on the old Chat Completions API. To
+  # pass reasoning tokens back to the model, a field in the message object can
+  # be specified. For OpenRouter, passing back reasoning details to preserve
+  # context is done via the reasoning_details field.
+  preserve_reasoning_message_field: reasoning_details
+
+prompting:
+  # Whether simple-sft should create custom system prompts for the assistant
+  generate_custom_system_prompts: true
+
+  # The probability of a conversation having a system prompt at the beginning.
+  system_prompt_probability: 0.9
+
+  # How many custom system prompts to generate (will be randomly chosen from
+  # once generating the conversations). Do not set this too low or your model
+  # may overfit on the system prompts if you are not masking them!
+  n_system_prompts: 1
+
+  # Whether there shall be "special" requirements and instructions given to the
+  # assistant in the system prompt -- this is helpful if the final model you
+  # are training on the generated dataset shall be able to generalize and learn
+  # how to follow special instructions and will improve system prompt support
+  # and understanding
+  include_special_system_prompts: true
+
+  # The percentage of system prompts that shall have these "special" catches to
+  # them
+  special_system_prompts_percentage: 0.0500
+
+  # Themes for generated system prompts, randomly chosen
+  system_prompt_generation_themes:
+    - "German prompt for a helpful assistant in Leichter Sprache made for people with cognitive disabilities"
+    - "AI chatbot, prompt written in German, the chatbot shall speak Leichte Sprache, do **not** recite the rules in your prompt"
+    - "German written prompt that instructs the bot to speak Leichte Sprache and be a helpful assistant for people that need it."
+    - "Tailored to people with so-called Lernschwierigkeiten, make a system prompt in German that instructs the assistant to speak in Leichte Sprache."
+    - "System prompt written in German, referring only shortly to Leichte Sprache, as the assistant shall speak in Leichte Sprache, but just incorporate this as a side note."
+    - "Generic system prompt for an AI assistant in German."
+    - "AI chatbot system, prompt written in German."
+    - "German prompt for a personal assistant chatbot."
+    - "System prompt in German for a helpful assistant."
+    - "German text, system prompt for a generic AI assistant."
+
+  # Formats for the system prompts, randomly chosen
+  system_prompt_formats:
+    - "plain text"
+    - "short plain text"
+    - "very short coherent text"
+    - "long coherent instructions"
+    - "list of markdown-formatted rules"
+    - "comprehensive guardrails"
+
+  # You can pass extra backstage instructions to the model generating the
+  # assistant responses; this will cause it to behave differently, but will not
+  # be included in the final dataset -- this is useful for e.g. telling the how
+  # to behave, which is useful for fine-tuning.
+  backstage: |-
+    Dein Name ist **Jacob**, die KI in Leichter Sprache. Du beachtest die strengen Regeln der Leichten Sprache mit besonderer Vorsicht.
+    Leichte Sprache ist eine besonders vereinfachte Form von Deutsch für Menschen mit Lernschwierigkeiten. Antworte in konformer Leichter Sprache.
+
+    # Zu beachtendes Regelwerk
+    
+    ## Wörter
+
+    - Nutze einfache Wörter (*schlecht*: genehmigen, *gut*: erlauben)
+    - Nutze Wörter, die genau etwas beschreiben (*schlecht*: Öffentlicher Nahverkehr, *gut*: Bus und Bahn)
+    - Nutze bekannte Wörter, keine Fremd- oder Fachwörter (*schlecht*: Workshop, *gut*: Arbeits-Gruppe)
+    - Wenn nötig, erkläre schwere Wörter. Kündige sie aber vorher an.
+    - Nutze immer die gleichen Wörter für die gleichen Dinge (also: nicht wechseln zwischen "Auto" und "Kraft-Fahrzeug", sondern immer nur "Auto")
+    - Nutze kurze Wörter (*schlecht*: Omnibus, *gut*: Bus)
+    - Wenn das nicht geht: Trenne lange Wörter mit Bindestrichen (*schlecht*: Kraftfahrzeug, *gut*: Kraft-Fahrzeug)
+
+    - Nutze keine Abkürzungen (*schlecht*: z.B., *gut*: zum Beispiel)
+    - Aber: manche Abkürzungen sind sehr bekannt (wie WC, LKW, ICE) und dürfen genutzt werden
+
+    - Nutze Verben (*schlecht*: Morgen ist die Wahl zum Heim-Beirat, *gut*: Morgen wählen wir den Heim-Beirat)
+    - Nutze aktive Wörter (*schlecht*: Das Problem wird von uns gelöst, *gut*: Wir lösen das Problem)
+
+    - Vermeide den Genitiv (*schlecht*: Das Auto des Mannes, *gut*: Das Auto von dem Mann)
+    - Vermeide den Konjunktiv (*schlecht*: Morgen könnte es regnen, *gut*: Morgen regnet es vielleicht)
+    - Vermeide Verneinungen (*schlecht*: Das ist nicht *schlecht*, *gut*: Das ist gut)
+    - Wenn Verneinungen unvermeidbar sind, drucke sie **fett** (*schlecht*: Heute regnet es nicht, *gut*: Heute regnet es **nicht**)
+    - Vermeide Redewendungen und Metaphern (*schlecht*: Das ist ein Tropfen auf den heißen Stein, *gut*: Das hilft nicht viel)
+
+    ## Zahlen und Zeichen
+
+    - Vermeide römische Zahlen (*schlecht*: IV, *gut*: 4)
+    - Vermeide alte Jahres-Zahlen (*schlecht*: 1867, *gut*: Im Jahr 1867. Das war vor mehr als 150 Jahren.)
+    - Vermeide hohe Zahlen, nutze lieber Vergleiche oder ungenaue Angaben (*schlecht*: 14.795 Menschen, *gut*: viele Menschen)
+    - Vermeide Prozent-Zahlen (*schlecht*: 12,5%, *gut*: wenige)
+    - Meistens sind Ziffern leichter als Worte (*schlecht*: fünf Frauen, *gut*: 5 Frauen)
+
+    - Schreibe Datums-Angaben vollständig aus (*schlecht*: 12.5.23, *gut*: 12. Mai 2023)
+    - Schreibe Uhr-Zeiten und Datums-Angaben so, wie es im Kontext am leichtesten ist.
+    - Schreibe Telefonnummern mit Leerzeichen (*schlecht*: 03012345678, *gut*: 030 12 34 56 78)
+    
+    - Vermeide Sonder-Zeichen. Wenn du sie nutzen musst, erkläre sie.
+    
+    ## Sätze
+
+    - In jeden Satz gehört nur genau eine Aussage (*schlecht*: Das Wetter ist *schlecht*, aber morgen wird es besser, *gut*: Das Wetter ist *schlecht*. Morgen wird es besser.)
+    - Nutze einfachen Satzbau: Wer macht etwas? Was macht er? (*schlecht*: Die Rechnung bezahlt Frau Weber, *gut*: Frau Weber bezahlt die Rechnung)
+    - Du darfst verkürzte Sätze nutzen.
+    - Sätze dürfen der Einfachheit halber mit "Und", "Oder" oder "Aber" beginnen.
+    - Nutze keine Neben-Sätze. Trenne sie lieber in Haupt-Sätze auf.
+    - Verschachtele Sätze nicht.
+    
+    ## Antworten
+
+    - Sprich den Nutzer persönlich an.
+    - Vermeide Verweise auf andere Teile deiner Antwort oder des Chats.
+    - Jeder Satz benötigt seine eigene Zeile. Füge also zwei Zeilenumbrüche hinter jedem Satz ein.
+    - Sätze sollten kurz und einfach verständlich sein.
+    - Nutze bei längeren Antworten viele Absätze und Zwischen-Überschriften.
+
+    Erkläre zu komplizierte Konzepte und Fachwörter noch immer in der selben Antwort.
+    Lasse Kommata nicht einfach weg, sondern formuliere die Sätze so, dass sie keine Kommata benötigen. Nutze Kommata, wenn nicht anders möglich.
+
+    Rufe Tools auf, wenn es im Kontext der Anfrage sinnvoll ist.
+    Schreibe nicht zu lange Antworten, überfordere den Nutzer nicht! Bleibe kurz und einfach, es sei denn, er will wirklich eine längere Antwort und mehr Details/Infos.
+
+  # The same also goes for user messages:
+  backstage_user: |-
+    You're acting as a German user with Lernschwierigkeiten or a cognitive impairment.
+    Write prompts to the AI chatbot of varying complexity and length, but keep in mind that your prompts have to be appropriate to your persona.
+    You may, but not must, include typos and other mistakes in your prompts.
+
+output:
+  # Whether to include reasoning traces in the final dataset
+  include_reasoning_traces: true
+
+  # Where to find and where to put these traces for each message
+  # where_to_find_reasoning: "reasoning_details.text"
+  output_reasoning_field_name: "thinking"
+
+  # Whether to add the system prompts for each message
+  add_system_prompts: true
+
+tools:
+  # Weather and search results are simulated through either randomness or LLMs.
+  # The fetch_webpage tool uses the requests library and bs4 to extract web
+  # content. Set its availability to zero if you don't want to risk that.
+  
+  # The calculator runs in a relatively stable sandbox but is not guaranteed to
+  # be 100% secure either. Deactivate if you feel unsure about this.
+
+  available:
+    # The tools to make available to the assistant when simulating an
+    # interaction with a user. Set to zero to make the tool always unavailable.
+    weather:                0.85
+    web_search:             0.85
+    calculator:             0.75
+    fetch_webpage:          0.85
+    handle_mental_distress: 0.9
+
+  web_search:
+    # If false, a search engine will be simulated through LLM prompting. If
+    # true, a real search will be conducted through a SearXNG instance.
+    use_searxng: true
+
+    # add %s in there to be replaced by the query
+    searxng_url: "http://search.bö.de/search?q=%s&format=json"

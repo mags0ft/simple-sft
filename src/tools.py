@@ -85,7 +85,7 @@ def _tool_weather(args: dict[str, str]):
         },
         "forecast": [
             {
-                "day": datetime.date.today() + datetime.timedelta(days=day),
+                "day": (datetime.date.today() + datetime.timedelta(days=day)).strftime("%Y-%m-%d"),
                 "temperature": random.randint(-10, 40),
                 "condition": random.choice(
                     ["Sunny", "Cloudy", "Rainy", "Snowy", "Windy", "Stormy"]
@@ -188,7 +188,10 @@ def _tool_handle_mental_distress(args: dict[str, str]) -> dict:
         "Successfully shown info to user.",
     ]
 
-    return {"output": random.choice(possible_outputs)}
+    return {"output": random.choice(possible_outputs), "resources": {
+        "emergency_number_europe": "112",
+        "telefonseelsorge": "0800 111 0 111 **or** 0800 111 0 222 **or** 116 123 **or** https://www.telefonseelsorge.de/"
+    }}
 
 
 # ----------- Definitions -----------
@@ -304,7 +307,7 @@ with http:// or https://)",
         [
             "handle_mental_distress",
             "show_mental_health_resources",
-            "provide_helplines",
+            "mental_health_support",
             "assist_with_mental_health",
         ],
         [
@@ -322,19 +325,39 @@ with http:// or https://)",
 
 def get_tool_response(name: str, args: str) -> str:
     """
-    Retrieves a response for the
+    Retrieves a response for the tool.
     """
 
     try:
-        parsed_args = json.loads(args)
+        if isinstance(args, str):
+            parsed_args = json.loads(args)
+        else:
+            parsed_args = args
     except json.JSONDecodeError:
         logger.error("Tool call arguments were not valid JSON: %s", args)
         raise ValueError("Model did not return valid JSON for the tool call.")
 
     try:
         logger.debug("Calling tool '%s' with parsed args: %s", name, parsed_args)
-        res = TOOLS[name].callback(parsed_args)
+        
+        # we need to figure out which tool was called, as the names vary.
+        # lets go through every tool and check if `name` is in their list of
+        # possible names, and if so, call it.
+        tool_to_call = None
+
+        for tool in TOOLS.values():
+            if name in tool.possible_names:
+                tool_to_call = tool
+                break
+    
+        if not tool_to_call:
+            logger.error("No tool found with name '%s'", name)
+            raise ValueError(f"No tool found with name '{name}'")
+
+        res = tool_to_call.callback(parsed_args)
+        
         logger.debug("Tool '%s' returned result type %s", name, type(res).__name__)
+        
         return json.dumps(res)
     except (KeyError, ValueError) as e:
         logger.exception("Tool '%s' failed: %s", name, e)
