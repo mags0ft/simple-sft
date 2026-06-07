@@ -200,12 +200,12 @@ def _tool_handle_mental_distress(args: dict[str, str]) -> dict:
     }}
 
 
-def _tool_get_datetime() -> dict:
+def _tool_get_datetime(args: dict[str, str]) -> dict:
     """
     Returns the current date and time in ISO format.
     """
 
-    logger.debug("Get datetime tool called.")
+    logger.debug("Get datetime tool called with args: %s", args)
 
     return {"datetime": datetime.datetime.now().isoformat()}
 
