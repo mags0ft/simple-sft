@@ -33,7 +33,9 @@ class Tool:
     schema = {}
     callback = lambda _: 0
 
-    def __init__(self, possible_names, possible_descriptions, schema, callback):
+    def __init__(
+        self, possible_names, possible_descriptions, schema, callback
+    ):
         self.possible_names = possible_names
         self.possible_descriptions = possible_descriptions
         self.schema = schema
@@ -85,7 +87,9 @@ def _tool_weather(args: dict[str, str]):
         },
         "forecast": [
             {
-                "day": (datetime.date.today() + datetime.timedelta(days=day)).strftime("%Y-%m-%d"),
+                "day": (
+                    datetime.date.today() + datetime.timedelta(days=day)
+                ).strftime("%Y-%m-%d"),
                 "temperature": random.randint(-10, 40),
                 "condition": random.choice(
                     ["Sunny", "Cloudy", "Rainy", "Snowy", "Windy", "Stormy"]
@@ -103,19 +107,25 @@ def _tool_web_search(args: dict[str, str]) -> dict:
     Simulates the web search tool.
     """
 
-    logger.debug("Web search tool called with query: %s", args.get("query", ""))
+    logger.debug(
+        "Web search tool called with query: %s", args.get("query", "")
+    )
 
     if config["tools"]["web_search"]["use_searxng"]:
         searxng_url = config["tools"]["web_search"]["searxng_url"] % args.get(
             "query", ""
         )
-        logger.debug("Performing real web search with SearXNG at URL: %s", searxng_url)
+        logger.debug(
+            "Performing real web search with SearXNG at URL: %s", searxng_url
+        )
 
         try:
             response = requests.get(searxng_url, timeout=10)
             response.raise_for_status()
             search_results = response.json().get("results", [])
-            logger.debug("Received %d search results from SearXNG", len(search_results))
+            logger.debug(
+                "Received %d search results from SearXNG", len(search_results)
+            )
 
             final_results = [
                 {
@@ -137,16 +147,22 @@ def _tool_web_search(args: dict[str, str]) -> dict:
         except requests.RequestException as e:
             logger.error("Error during SearXNG web search: %s", e)
 
-            raise ToolError("Web search tool failed to perform the search: ", e)
+            raise ToolError(
+                "Web search tool failed to perform the search: ", e
+            )
 
     for attempt in range(3):
         try:
             result = json.loads(
                 clean_response(
-                    simple_in_out(WEB_SEARCH_SIMULATION_PROMPT % args.get("query", ""))
+                    simple_in_out(
+                        WEB_SEARCH_SIMULATION_PROMPT % args.get("query", "")
+                    )
                 )
             )
-            logger.debug("Web search tool succeeded on attempt %d", attempt + 1)
+            logger.debug(
+                "Web search tool succeeded on attempt %d", attempt + 1
+            )
             return result
         except json.JSONDecodeError:
             logger.warning(
@@ -155,8 +171,12 @@ def _tool_web_search(args: dict[str, str]) -> dict:
             )
             continue
 
-    logger.error("Web search tool failed to return valid JSON after 3 attempts")
-    raise ValueError("Model did not return valid JSON for the web search tool.")
+    logger.error(
+        "Web search tool failed to return valid JSON after 3 attempts"
+    )
+    raise ValueError(
+        "Model did not return valid JSON for the web search tool."
+    )
 
 
 def _tool_calculator(args: dict[str, str]) -> dict:
@@ -194,10 +214,13 @@ def _tool_handle_mental_distress(args: dict[str, str]) -> dict:
         "Successfully shown info to user.",
     ]
 
-    return {"output": random.choice(possible_outputs), "resources": {
-        "emergency_number_europe": "112",
-        "telefonseelsorge": "0800 111 0 111 **or** 0800 111 0 222 **or** 116 123 **or** https://www.telefonseelsorge.de/"
-    }}
+    return {
+        "output": random.choice(possible_outputs),
+        "resources": {
+            "emergency_number_europe": "112",
+            "telefonseelsorge": "0800 111 0 111 **or** 0800 111 0 222 **or** 116 123 **or** https://www.telefonseelsorge.de/",
+        },
+    }
 
 
 def _tool_get_datetime(args: dict[str, str]) -> dict:
@@ -207,7 +230,19 @@ def _tool_get_datetime(args: dict[str, str]) -> dict:
 
     logger.debug("Get datetime tool called with args: %s", args)
 
-    return {"datetime": datetime.datetime.now().isoformat()}
+    # generate random datetime up to 2020-01-01
+    t = datetime.datetime.now() - datetime.timedelta(
+        seconds=random.randint(
+            0,
+            int(
+                (
+                    datetime.datetime.now() - datetime.datetime(2020, 1, 1)
+                ).total_seconds()
+            ),
+        )
+    )
+
+    return {"datetime": t.isoformat()}
 
 
 # ----------- Definitions -----------
@@ -352,7 +387,7 @@ with http:// or https://)",
         ],
         {},
         _tool_get_datetime,
-    )
+    ),
 }
 
 
@@ -378,8 +413,10 @@ def get_tool_response(name: str, args: str) -> str:
             parsed_args = parsed_args["args"]
 
     try:
-        logger.debug("Calling tool '%s' with parsed args: %s", name, parsed_args)
-        
+        logger.debug(
+            "Calling tool '%s' with parsed args: %s", name, parsed_args
+        )
+
         # we need to figure out which tool was called, as the names vary.
         # lets go through every tool and check if `name` is in their list of
         # possible names, and if so, call it.
@@ -389,15 +426,17 @@ def get_tool_response(name: str, args: str) -> str:
             if name in tool.possible_names:
                 tool_to_call = tool
                 break
-    
+
         if not tool_to_call:
             logger.error("No tool found with name '%s'", name)
             raise ValueError(f"No tool found with name '{name}'")
 
         res = tool_to_call.callback(parsed_args)
-        
-        logger.debug("Tool '%s' returned result type %s", name, type(res).__name__)
-        
+
+        logger.debug(
+            "Tool '%s' returned result type %s", name, type(res).__name__
+        )
+
         return json.dumps(res)
     except (KeyError, ValueError) as e:
         logger.exception("Tool '%s' failed: %s", name, e)
@@ -411,8 +450,12 @@ def generate_random_tool_selection(tools: list[str]) -> list[TopLevelToolType]:
     expected for OpenAI API tool definitions.
     """
 
-    selection = [TOOLS[tool].generate_variation() for tool in tools if tool in TOOLS]
-    logger.debug("Generated %d tool variations for tools: %s", len(selection), tools)
+    selection = [
+        TOOLS[tool].generate_variation() for tool in tools if tool in TOOLS
+    ]
+    logger.debug(
+        "Generated %d tool variations for tools: %s", len(selection), tools
+    )
 
     return selection
 
