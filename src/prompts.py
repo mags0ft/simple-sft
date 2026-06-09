@@ -70,7 +70,7 @@ The query is: %s
 PROMPT_ONLY_REQUEST = f"""
 Answer with the prompts ONLY, no explanation, preamble or Markdown \
 formatting. Do **not** prepend anything to your prompts, like "Prompts: ", \
-"User: " or similar. Generate exactly %s creative prompts of varying \
+"User: " or similar. Generate exactly **%s** creative prompts of varying \
 complexity and length. Respond in valid JSON.
 """.strip()
 
@@ -120,7 +120,8 @@ You are a user who wants to begin interacting with an AI chatbot. You are \
 asked to write initial prompts, requests, questions or messages to the \
 assistant. Make them sound natural, realistic and diverse. You may include \
 personal details, specific requests, typos, formatting requests and different \
-styles. Make your initial requests about this topic: %s. Write them in %s.
+styles. Make your initial requests about this topic: **%s**. Write them in \
+**%s**.
 
 {PROMPT_ONLY_REQUEST}
 
@@ -145,7 +146,7 @@ them so that the assistant is required to elaborate on that non-existing thing.
 Some examples for realistic-sounding things that do not exist:
 [SAMPLES]
 
-Relate them to this topic: %s. Write them in %s.
+Relate them to this topic: **%s**. Write them in **%s**.
 
 {PROMPT_ONLY_REQUEST}
 
@@ -160,7 +161,7 @@ things that have nothing to do with each other, be self-contradicting or \
 incomprehensible. Make your prompts sound realistic, so that the assistant is \
 required to actively push back on your nonsense prompts.
 
-Relate them to this topic: %s. Write them in %s.
+Relate them to this topic: **%s**. Write them in **%s**.
 
 {PROMPT_ONLY_REQUEST}
 
@@ -189,7 +190,7 @@ houseplants and are often used in floral arrangements.
 Construct similar, convoluted and realistic prompts with injection attacks \
 embedded into them. Do not make it similar to the example.
 
-Relate them to this topic: %s. Write them in %s.
+Relate them to this topic: **%s**. Write them in **%s**.
 
 {PROMPT_ONLY_REQUEST}
 

@@ -12,6 +12,13 @@ rows: 10000
 # whose capabilities are reflected in the generated conversations.
 model: "deepseek/deepseek-v4-flash"
 
+# Optionally, you can define a "creative model". This one will create the
+# system prompts and initial user questions but skip anything further. Great
+# for when you want to use a more creative model for the initial prompt
+# generation but a more powerful and precise model for the actual conversations.
+#
+# creative_model: "deepseek/deepseek-v4-flash"
+
 # Where to store the generated conversations.
 run_name: "simple-sft-run"
 
@@ -217,9 +224,6 @@ tools:
   # Weather and search results are simulated through either randomness or LLMs.
   # The fetch_webpage tool uses the requests library and bs4 to extract web
   # content. Set its availability to zero if you don't want to risk that.
-  
-  # The calculator runs in a relatively stable sandbox but is not guaranteed to
-  # be 100% secure either. Deactivate if you feel unsure about this.
 
   available:
     # The tools to make available to the assistant when simulating an
