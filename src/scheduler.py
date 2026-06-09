@@ -373,6 +373,26 @@ def generate_first_user_messages_in_parallel(templates: list[dict[str, str]]) ->
                 resp_json_array_name="first_user_messages",
             )
 
+            if len(messages) < to_generate:
+                logger.warning(
+                    "Thread %s: Generated fewer messages than needed (%d < %d), reusing some prompts.",
+                    threading.get_ident(),
+                    len(messages),
+                    to_generate,
+                )
+
+                while len(messages) < to_generate:
+                    messages.extend(messages)
+
+            elif len(messages) > to_generate:
+                logger.warning(
+                    "Thread %s: Generated more messages than needed (%d > %d), cutting off the extras.",
+                    threading.get_ident(),
+                    len(messages),
+                    to_generate,
+                )
+                messages = messages[:to_generate]
+
             if not messages:
                 logger.error(
                     "Thread %s: Failed to generate first user messages.",
@@ -385,8 +405,6 @@ def generate_first_user_messages_in_parallel(templates: list[dict[str, str]]) ->
 
             for template, message in zip(job, messages):
                 template["initial_message"] = message
-
-        return
 
     threads = []
     thread_count = min(config["n_threads"], len(slots))
