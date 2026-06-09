@@ -472,7 +472,7 @@ def pick_random_tools() -> list[TopLevelToolType]:
     for tool in tool_weights:
         if tool not in TOOLS:
             logger.warning(
-                "Tool '%s' specified in config is not defined in the code and will be ignored.",
+                "Tool '%s' specified in config unknown and will be ignored.",
                 tool,
             )
             continue

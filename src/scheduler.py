@@ -8,6 +8,7 @@ import json
 import random
 import threading
 import os
+from turtle import up
 import uuid
 
 from dataclasses import dataclass, field
@@ -16,8 +17,10 @@ from config_reader import config
 from conversation_generation import generate_conversation, generate_initial_question
 from llm_interface import clean_response, retrieve_several_as_structured_output
 from prompts import (
+    INITIAL_MESSAGE_PROMPT,
     SYSTEM_PROMPT_GENERATION_ADDITION,
     SYSTEM_PROMPT_GENERATION_PROMPT,
+    CreateSpecialPrompts,
     concatenate_prompts,
 )
 
@@ -309,6 +312,119 @@ def generate_system_prompts_in_parallel(output_file_path: str) -> None:
     logger.info("All system prompt threads joined")
 
 
+def generate_first_user_messages_in_parallel(templates: list[dict[str, str]]) -> None:
+    """
+    Populates all of the template entries with a generated first user message.
+    Uses batching to make the process more efficient and creative.
+    """
+
+    # will only store the references to the templates, so this structure is
+    # actually very light-weight
+    slots: dict[int, list[dict[str, str]]] = {}
+
+    # group templates by category and language
+    for template in templates:
+        category = template["category"]
+        language = template["language"]
+        specials = template["specials"]
+
+        category_id = hash(category + language + specials)
+        modifier = 0
+
+        while category_id in slots and len(slots[category_id]) >= config["batch_size"]:
+            modifier += 1
+            category_id = hash(category + language + specials + str(modifier))
+
+        if category_id not in slots:
+            slots[category_id] = []
+
+        slots[category_id].append(template)
+
+    def worker(jobs: list[list[dict[str, str]]]):
+        for job in jobs:
+            # as we know that the templates in the same job have the same
+            # category and language, we can generate n initial messages where n
+            # is the length of the job
+            category = job[0]["category"]
+            language = job[0]["language"]
+            specials = job[0]["specials"]
+            to_generate = len(job)
+
+            backstage_user = config["prompting"].get("backstage_user", "").strip()
+
+            if not specials:
+                input_prompt = INITIAL_MESSAGE_PROMPT % (
+                    category,
+                    language,
+                    to_generate,
+                    backstage_user
+                )
+            else:
+                c = CreateSpecialPrompts()
+
+                input_prompt = {
+                    "nonsense": c.nonsense_prompt,
+                    "prompt_injection": c.prompt_injection_prompt,
+                    "hallucination": c.get_hallucination_prompt(),
+                }[specials] % (category, language, to_generate, backstage_user)
+
+            messages = retrieve_several_as_structured_output(
+                input_prompt,
+                resp_json_array_name="first_user_messages",
+            )
+
+            if not messages:
+                logger.error(
+                    "Thread %s: Failed to generate first user messages.",
+                    threading.get_ident(),
+                )
+                continue
+
+            messages = [clean_response(prompt) for prompt in messages]
+            random.shuffle(messages)
+
+            for template, message in zip(job, messages):
+                template["initial_message"] = message
+
+        return
+
+    threads = []
+    thread_count = min(config["n_threads"], len(slots))
+    slots_per_thread, remainder = divmod(len(slots), thread_count)
+
+    for thread_index in range(thread_count):
+        slot_ids_for_thread = list(slots.keys())[
+            thread_index * slots_per_thread : (thread_index + 1) * slots_per_thread
+        ]
+
+        if thread_index < remainder:
+            slot_ids_for_thread.append(
+                list(slots.keys())[(thread_index + 1) * slots_per_thread]
+            )
+
+        jobs_for_thread = []
+
+        for slot_id in slot_ids_for_thread:
+            jobs_for_thread.append(slots[slot_id])
+
+        thread = threading.Thread(target=worker, args=(jobs_for_thread,))
+        thread.start()
+
+        logger.debug(
+            "Started initial question generation thread %d (id=%s) with %d jobs",
+            thread_index,
+            thread.ident,
+            len(jobs_for_thread),
+        )
+
+        threads.append(thread)
+    
+    for thread in threads:
+        thread.join()
+    
+    logger.debug("Finished generating first user messages for all templates")
+
+
 def generate_templates(
     state_path: str,
     system_prompts_path: str,
@@ -350,7 +466,9 @@ def generate_templates(
                     "language": next_lang(leftover_distribution[category_ptr]),
                     "system_prompt": system_prompts[system_prompt_ptr] if has_system_prompt else "",
                     "specials": get_specials(config["special_categories"]),
+                    "initial_message": "", # will be filled later
                 }
+                
                 if has_system_prompt:
                     system_prompt_ptr = (system_prompt_ptr + 1) % len(system_prompts)
 
@@ -374,7 +492,16 @@ def generate_templates(
         len(templates),
         config["rows"],
     )
+    update_state_file(state_path, {"templates": templates})
 
+    logger.debug(
+        "Grouping by category and language and generating first user message "
+        "for each template"
+    )
+
+    generate_first_user_messages_in_parallel(templates)
+
+    logger.debug("Finished generating templates with first user messages")
     update_state_file(state_path, {"templates": templates})
 
     return len(templates)
@@ -418,12 +545,7 @@ def generate_conversations_in_parallel(
                     category=template["category"],
                     system_prompt=template["system_prompt"],
                     special_category=template["specials"],
-                    initial_question=generate_initial_question(
-                        template["category"],
-                        template["language"],
-                        config["prompting"].get("backstage_user", "").strip(),
-                        special_category=template["specials"],
-                    ),
+                    initial_question=template["initial_message"],
                     language=template["language"],
                     tools=pick_random_tools(),
                 )
