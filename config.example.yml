@@ -12,13 +12,6 @@ rows: 10000
 # whose capabilities are reflected in the generated conversations.
 model: "deepseek/deepseek-v4-flash"
 
-# Optionally, you can define a "creative model". This one will create the
-# system prompts and initial user questions but skip anything further. Great
-# for when you want to use a more creative model for the initial prompt
-# generation but a more powerful and precise model for the actual conversations.
-#
-# creative_model: "deepseek/deepseek-v4-flash"
-
 # Where to store the generated conversations.
 run_name: "simple-sft-run"
 

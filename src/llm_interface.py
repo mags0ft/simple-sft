@@ -271,7 +271,8 @@ def process_many_out_of_order(prompts: list[str], n_threads: int = 8) -> list[st
 
 
 def retrieve_several_as_structured_output(
-    prompt: str, resp_json_array_name: str = "messages"
+    prompt: str,
+    resp_json_array_name: str = "messages",
 ) -> list[str]:
     """
     Retrieves several outputs for a given prompt in parallel and returns them
