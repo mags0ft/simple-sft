@@ -45,6 +45,11 @@ user actually sees, but has been done to be more concise. Just ignore that.
 
 Generate a reasonable follow-up request/message from the viewpoint of the user.
 
+It can be long, convoluted, contain typos, copy-paste artifacts, formatting \
+requests, personal details or similar, but may also be short, direct and \
+formally written - choose what contextually fits best. Make it sound natural \
+and realistic.
+
 Only answer with this message, nothing else. Do not prepend "User:" to your \
 message.
 

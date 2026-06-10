@@ -208,7 +208,18 @@ def get_tool_calls(response: Any | None) -> list[ToolCallType]:
     for tool_call in raw_tool_calls:
         tool_id = tool_call.id
         tool_name = tool_call.function.name
-        tool_args = json.loads(tool_call.function.arguments)
+        
+        tool_args_prev = tool_call.function.arguments
+
+        # some providers mess this one up.
+        if isinstance(tool_args_prev, str):
+            while tool_args_prev.endswith('"') or tool_args_prev.startswith('"'):
+                if tool_args_prev.endswith('"'):
+                    tool_args_prev = tool_args_prev[:-1]
+                if tool_args_prev.startswith('"'):
+                    tool_args_prev = tool_args_prev[1:]
+
+        tool_args = json.loads(tool_args_prev)
 
         tool_calls.append(
             {
@@ -273,6 +284,7 @@ def process_many_out_of_order(prompts: list[str], n_threads: int = 8) -> list[st
 def retrieve_several_as_structured_output(
     prompt: str,
     resp_json_array_name: str = "messages",
+    max_retries: int = 3,
 ) -> list[str]:
     """
     Retrieves several outputs for a given prompt in parallel and returns them
@@ -283,47 +295,47 @@ def retrieve_several_as_structured_output(
     """
 
     logger.debug("Retrieving structured output for prompt (len=%d)", len(prompt or ""))
-    response = completion_wrapper(
-        messages=[{"role": "user", "content": prompt.strip()}],
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": "response",
-                "strict": True,
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        resp_json_array_name: {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        }
+
+    for attempt in range(max_retries):
+        response = completion_wrapper(
+            messages=[{"role": "user", "content": prompt.strip()}],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "response",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            resp_json_array_name: {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            }
+                        },
+                        "required": [resp_json_array_name],
+                        "additional_properties": False,
                     },
-                    "required": [resp_json_array_name],
-                    "additional_properties": False,
                 },
             },
-        },
-        **meta_config,
-    )
-
-    response_text = get_text(response)
-    logger.debug("Structured response text length %d", len(response_text or ""))
-
-    try:
-        response_json = json.loads(response_text)
-
-        if isinstance(response_json, dict):
-            return response_json[resp_json_array_name]
-        elif isinstance(response_json, list):
-            logger.debug("Response JSON is a list, returning it directly")
-            return response_json
-        else:
-            logger.error("Unexpected JSON structure: %s", type(response_json).__name__)
-            raise ValueError(
-                f"Unexpected JSON structure: {type(response_json).__name__}"
-            )
-    except (json.JSONDecodeError, KeyError) as e:
-        logger.error("Failed to parse structured response: %s", e)
-        raise ValueError(
-            f"Failed to parse the response as JSON or expected key not found: {e}"
+            **meta_config,
         )
+
+        response_text = get_text(response)
+        logger.debug("Structured response text length %d, attempt %d", len(response_text or ""), attempt + 1)
+
+        try:
+            response_json = json.loads(response_text)
+
+            if isinstance(response_json, dict):
+                return response_json[resp_json_array_name]
+            elif isinstance(response_json, list):
+                logger.debug("Response JSON is a list, returning it directly")
+                return response_json
+            else:
+                logger.error("Unexpected JSON structure %s, retrying...", type(response_json).__name__)
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.error("Failed to parse structured response: %s", e)
+
+    raise ValueError(
+        f"Failed to retrieve structured output after {max_retries} attempts."
+    )

@@ -368,10 +368,19 @@ def generate_first_user_messages_in_parallel(templates: list[dict[str, str]]) ->
                     "hallucination": c.get_hallucination_prompt(),
                 }[specials] % (category, language, to_generate, backstage_user)
 
-            messages = retrieve_several_as_structured_output(
-                input_prompt,
-                resp_json_array_name="first_user_messages",
-            )
+            try:
+                messages = retrieve_several_as_structured_output(
+                    input_prompt,
+                    resp_json_array_name="first_user_messages",
+                )
+            except Exception as e:
+                logger.exception(
+                    "Thread %s: Failed to generate first user messages for job %s: %s",
+                    threading.get_ident(),
+                    job,
+                    e,
+                )
+                continue
 
             if len(messages) < to_generate:
                 logger.warning(
@@ -402,37 +411,31 @@ def generate_first_user_messages_in_parallel(templates: list[dict[str, str]]) ->
 
             messages = [clean_response(prompt) for prompt in messages]
             random.shuffle(messages)
-
+        
             for template, message in zip(job, messages):
                 template["initial_message"] = message
 
     threads = []
     thread_count = min(config["n_threads"], len(slots))
-    slots_per_thread, remainder = divmod(len(slots), thread_count)
+    slots_per_thread = len(slots) // thread_count
 
     for thread_index in range(thread_count):
-        slot_ids_for_thread = list(slots.keys())[
+        assigned_slots = list(slots.values())[
             thread_index * slots_per_thread : (thread_index + 1) * slots_per_thread
         ]
 
-        if thread_index < remainder:
-            slot_ids_for_thread.append(
-                list(slots.keys())[(thread_index + 1) * slots_per_thread]
-            )
+        # assign all of the remaining slots to the first thread as well
+        if thread_index == 0:
+            remaining_slots = list(slots.values())[thread_count * slots_per_thread :]
+            assigned_slots.extend(remaining_slots)
 
-        jobs_for_thread = []
-
-        for slot_id in slot_ids_for_thread:
-            jobs_for_thread.append(slots[slot_id])
-
-        thread = threading.Thread(target=worker, args=(jobs_for_thread,))
+        thread = threading.Thread(target=worker, args=(assigned_slots,))
         thread.start()
-
         logger.debug(
-            "Started initial question generation thread %d (id=%s) with %d jobs",
+            "Started first user message generation thread %d (id=%s) with %d slots",
             thread_index,
             thread.ident,
-            len(jobs_for_thread),
+            len(assigned_slots),
         )
 
         threads.append(thread)
@@ -680,6 +683,7 @@ def distribute_categories(
             rows_left >= 0
         ), "Total number of rows is less than the sum of fixed rows."
 
+
     # now, let's see how many percent the remaining categories have in total:
     total_percent = sum(
         weight for weight in categories.values() if isinstance(weight, float)
@@ -687,12 +691,16 @@ def distribute_categories(
 
     # let's count how many categories are -1 ("go figure it out for me"):
     n_negative_one = sum(1 for weight in categories.values() if weight == -1)
+    all_used = total_percent == 1.0 or n_negative_one > 0
 
     # we do this in order to evenly distribute the -1 weights across the
     # remaining categories:
     for category_name, weight in categories.items():
         if weight == -1:
             categories[category_name] = (1 - total_percent) / n_negative_one
+
+    assert all_used, "The category distribution does not use up all of the \
+requested rows. Have you checked that your percentages add up to 1.0?"
 
     # now we can distribute the remaining rows according to the percentage
     # weights:
